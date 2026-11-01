@@ -1268,8 +1268,10 @@ private fun MiniPlayer(song: Song, engine: PlayerEngine, onExpand: () -> Unit) {
 private fun FullPlayer(
     song: Song, engine: PlayerEngine, favorite: Boolean, offline: Boolean, progress: Float?,
     onBack: () -> Unit, onFavorite: () -> Unit, onDownload: () -> Unit, onAttribution: () -> Unit,
+    userPlaylists: List<LocalPlaylist>, onAddToPlaylist: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showPlaylistPicker by remember { mutableStateOf(false) }
     var seekFraction by remember(song.id) { mutableFloatStateOf(-1f) }
     var showQueue by remember { mutableStateOf(false) }
 
@@ -1351,7 +1353,12 @@ private fun FullPlayer(
             }
         }
         Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = { showPlaylistPicker = true }) {
+                Icon(Icons.Default.PlaylistAdd, "Add to playlist", tint = ink, modifier = Modifier.size(21.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Add to playlist", fontSize = 13.sp, color = ink)
+            }
             TextButton(onClick = { showQueue = true }) {
                 Icon(Icons.Default.QueueMusic, "Open play queue", tint = ink, modifier = Modifier.size(21.dp))
                 Spacer(Modifier.width(7.dp))
@@ -1386,6 +1393,34 @@ private fun FullPlayer(
                 Text("About this recording", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ink)
                 Text(song.license, fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
                 Text("View source and license", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ink)
+            }
+        }
+    }
+    if (showPlaylistPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showPlaylistPicker = false },
+            containerColor = surface, contentColor = ink
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                Text("Add to playlist", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(11.dp))
+                if (userPlaylists.isEmpty()) {
+                    Text("Create a playlist in Your Library first.", color = muted, fontSize = 13.sp)
+                }
+                userPlaylists.forEach { playlist ->
+                    Row(Modifier.fillMaxWidth().clickable {
+                        onAddToPlaylist(playlist.id)
+                        showPlaylistPicker = false
+                    }.padding(vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LibraryMusic, null, tint = accent)
+                        Spacer(Modifier.width(13.dp))
+                        Column {
+                            Text(playlist.name, fontWeight = FontWeight.SemiBold)
+                            Text("${playlist.trackIds.size} tracks", fontSize = 12.sp, color = muted)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
