@@ -30,7 +30,7 @@ class LocalPlaylists(context: Context) {
             items.take(150).forEach { playlist ->
                 put(JSONObject().put("id", playlist.id).put("name", playlist.name)
                     .put("songs", JSONArray().apply {
-                        playlist.trackIds.take(3000).forEach(::put)
+                        playlist.trackIds.take(3000).forEach { put(it) }
                     }))
             }
         }
