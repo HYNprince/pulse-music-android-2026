@@ -22,6 +22,10 @@ class PlayerEngine(private val context: Context, private val repo: MusicReposito
         private set
     var isPlaying by mutableStateOf(false)
         private set
+    var shuffle by mutableStateOf(false)
+        private set
+    var repeat by mutableStateOf(false)
+        private set
     var position by mutableStateOf(0L)
         private set
     var duration by mutableStateOf(0L)
@@ -33,6 +37,8 @@ class PlayerEngine(private val context: Context, private val repo: MusicReposito
 
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(value: Boolean) { isPlaying = value }
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { shuffle = shuffleModeEnabled }
+        override fun onRepeatModeChanged(repeatMode: Int) { repeat = repeatMode != Player.REPEAT_MODE_OFF }
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             current = mediaItem?.mediaId?.let(tracks::get) ?: current
             updatePosition()
@@ -80,6 +86,8 @@ class PlayerEngine(private val context: Context, private val repo: MusicReposito
     }
 
     fun toggle() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
+    fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled; shuffle = it.shuffleModeEnabled } }
+    fun toggleRepeat() { controller?.let { it.repeatMode = if (it.repeatMode == Player.REPEAT_MODE_OFF) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF; repeat = it.repeatMode != Player.REPEAT_MODE_OFF } }
     fun next() { controller?.let { if (it.hasNextMediaItem()) it.seekToNextMediaItem() } }
     fun previous() { controller?.let { if (it.hasPreviousMediaItem()) it.seekToPreviousMediaItem() else it.seekTo(0) } }
     fun seek(fraction: Float) {
