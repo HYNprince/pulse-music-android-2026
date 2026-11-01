@@ -46,6 +46,17 @@ jobs:
             ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
           fi
 
+      - name: Create local test-only Android debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          # Upstream Metrolist signs with this standard debug key only for the test build.
+          # Never publish this ephemeral key as a stable signing identity.
+
       - name: Build source baseline without modifying app code
         working-directory: metrolist-upstream
         env:
