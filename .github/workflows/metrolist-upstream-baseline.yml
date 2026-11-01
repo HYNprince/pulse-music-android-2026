@@ -1,0 +1,79 @@
+# Build the unmodified GPL-3.0 Metrolist Android source as a separate test APK.
+# This DOES NOT replace, alter, or merge the existing Pulse Music source.
+# SOURCE: https://github.com/MetrolistGroup/Metrolist
+# LICENSE: https://github.com/MetrolistGroup/Metrolist/blob/main/LICENSE
+# PINNED UPSTREAM COMMIT: 876e355181fd3b04e7063b10442fef1b721d53b3
+name: Metrolist upstream source baseline
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/metrolist-upstream-baseline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-metrolist-baseline:
+    name: Build unmodified Metrolist FOSS debug baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout authentic Metrolist GPL-3.0 source
+        uses: actions/checkout@v4
+        with:
+          repository: MetrolistGroup/Metrolist
+          ref: 876e355181fd3b04e7063b10442fef1b721d53b3
+          submodules: recursive
+          path: metrolist-upstream
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android API 37 and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+
+      - name: Build source baseline without modifying app code
+        working-directory: metrolist-upstream
+        env:
+          METROLIST_APPLICATION_ID: com.pulsemusic.metrolistbaseline
+          METROLIST_APP_NAME: Metrolist Source Baseline
+          PULL_REQUEST: "false"
+          GITHUB_EVENT_NAME: workflow_dispatch
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -Dkotlin.daemon.jvm.options=-Xmx2g"
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleFossDebug --no-daemon --console=plain --warning-mode summary
+
+      - name: Include GPL license and exact source revision
+        if: success()
+        run: |
+          cp metrolist-upstream/LICENSE METROLIST-GPL-3.0-LICENSE.txt
+          printf '%s\n' \
+            "This is an unmodified Metrolist GPL-3.0 source build." \
+            "Source: https://github.com/MetrolistGroup/Metrolist" \
+            "Commit: 876e355181fd3b04e7063b10442fef1b721d53b3" \
+            "This test package is not the official Metrolist release." \
+            "YouTube Music access and copyright/terms compliance are not guaranteed." \
+            > SOURCE-ATTRIBUTION.txt
+
+      - name: Upload separate Metrolist test APK and attribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: Metrolist-GPL3-source-baseline-test
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            metrolist-upstream/app/build/outputs/apk/foss/debug/*.apk
+            METROLIST-GPL-3.0-LICENSE.txt
+            SOURCE-ATTRIBUTION.txt
