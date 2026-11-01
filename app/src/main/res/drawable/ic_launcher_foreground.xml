@@ -1,8 +1,11 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Original Pulse Music P + soundwave mark. -->
-    <path android:fillColor="#1ED760" android:pathData="M32,25 L32,83 L44,83 L44,62 L54,62 C69,62 77,55 77,43 C77,31 68,25 54,25 Z M44,36 L53,36 C60,36 65,38 65,43 C65,49 60,51 53,51 L44,51 Z" android:fillType="evenOdd"/>
-    <path android:fillColor="#00000000" android:strokeColor="#E7FFF0" android:strokeWidth="3.6"
-        android:strokeLineCap="round" android:pathData="M79,59 L79,68 M86,55 L86,73"/>
+    <!-- Gmac: independently drawn angular audio-wing emblem, not a Batman logo. -->
+    <path android:fillColor="#D9DFE8"
+        android:pathData="M17,48 L30,44 L40,51 L50,32 L58,32 L68,51 L78,44 L91,48 L80,65 L68,62 L54,80 L40,62 L28,65 Z"/>
+    <path android:fillColor="#7D93A7"
+        android:pathData="M36,55 L44,56 L54,42 L64,56 L72,55 L68,62 L54,72 L40,62 Z"/>
+    <path android:fillColor="#0A0E15"
+        android:pathData="M48,43 L54,32 L60,43 L54,51 Z"/>
 </vector>
