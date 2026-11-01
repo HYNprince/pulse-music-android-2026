@@ -127,6 +127,16 @@ android {
                 "proguard-rules.pro",
             )
         }
+        // Performance-testing beta. Uses Release R8 optimizations, unlike a debug APK.
+        // Different package suffix protects existing Gmac app data when comparing speed.
+        create("beta") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+            matchingFallbacks += listOf("release", "debug")
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
         debug {
             if (applicationIdOverride == null) {
                 applicationIdSuffix = ".debug"
