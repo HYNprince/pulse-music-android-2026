@@ -3,6 +3,8 @@ package com.example.pulsemusic
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.media.MediaMetadataRetriever
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +33,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -232,43 +237,61 @@ private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.Ima
 
 @Composable
 private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radius: Dp = 5.dp) {
+    val context = LocalContext.current
+    val albumArt = remember(song.id) {
+        if (!song.isDeviceFile) null else runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, Uri.parse(song.streamUrl))
+                retriever.embeddedPicture?.let { bytes ->
+                    val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
+                }
+            } finally { retriever.release() }
+        }.getOrNull()
+    }
     val palette = colors[song.gradient % colors.size]
     Box(
         modifier.size(size).clip(RoundedCornerShape(radius))
             .background(Brush.linearGradient(listOf(palette[0], palette[1], palette[2]))),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = 0.11f),
-                radius = this.size.minDimension * .50f,
-                center = Offset(this.size.width * .83f, this.size.height * .88f)
-            )
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.18f),
-                radius = this.size.minDimension * .38f,
-                center = Offset(this.size.width * .18f, this.size.height * .16f)
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.12f),
-                radius = this.size.minDimension * .17f,
-                center = Offset(this.size.width * .84f, this.size.height * .86f)
-            )
-        }
-        Column(Modifier.fillMaxSize().padding((size.value * .09f).dp),
-            verticalArrangement = Arrangement.SpaceBetween) {
-            Text(if (song.isDeviceFile) "YOUR MUSIC" else "PULSE ORIGINALS",
-                fontSize = (size.value * .07f).coerceIn(6f, 11f).sp,
-                fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .78f),
-                letterSpacing = .5.sp, maxLines = 1)
-            Column {
-                Text(song.title.uppercase(),
-                    fontSize = (size.value * .16f).coerceIn(11f, 29f).sp,
-                    fontWeight = FontWeight.Black, lineHeight = (size.value * .16f).coerceIn(11f, 30f).sp,
-                    color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(song.artist.substringBefore("·").trim(),
-                    fontSize = (size.value * .07f).coerceIn(7f, 11f).sp,
-                    color = Color.White.copy(alpha = .85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (albumArt != null) {
+            Image(bitmap = albumArt, contentDescription = "Artwork for ${song.title}",
+                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Canvas(Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.11f),
+                    radius = this.size.minDimension * .50f,
+                    center = Offset(this.size.width * .83f, this.size.height * .88f)
+                )
+                drawCircle(
+                    color = Color.Black.copy(alpha = 0.18f),
+                    radius = this.size.minDimension * .38f,
+                    center = Offset(this.size.width * .18f, this.size.height * .16f)
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.12f),
+                    radius = this.size.minDimension * .17f,
+                    center = Offset(this.size.width * .84f, this.size.height * .86f)
+                )
+            }
+            Column(Modifier.fillMaxSize().padding((size.value * .09f).dp),
+                verticalArrangement = Arrangement.SpaceBetween) {
+                Text(if (song.isDeviceFile) "YOUR MUSIC" else "PULSE ORIGINALS",
+                    fontSize = (size.value * .07f).coerceIn(6f, 11f).sp,
+                    fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .78f),
+                    letterSpacing = .5.sp, maxLines = 1)
+                Column {
+                    Text(song.title.uppercase(),
+                        fontSize = (size.value * .16f).coerceIn(11f, 29f).sp,
+                        fontWeight = FontWeight.Black, lineHeight = (size.value * .16f).coerceIn(11f, 30f).sp,
+                        color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(song.artist.substringBefore("·").trim(),
+                        fontSize = (size.value * .07f).coerceIn(7f, 11f).sp,
+                        color = Color.White.copy(alpha = .85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }
