@@ -95,14 +95,17 @@ private fun MusicApp() {
     var importedPlaylists by remember { mutableStateOf(playlistStore.savedPlaylists()) }
     val engine = remember { PlayerEngine(context, repository) }
     var deviceSongs by remember { mutableStateOf(repository.importedFiles()) }
+    var discoveredSongs by remember { mutableStateOf(repository.discoveredTracks()) }
     var favorites by remember { mutableStateOf(repository.favorites()) }
     val downloaded = remember {
         mutableStateMapOf<String, Boolean>().apply {
-            starterCatalog.forEach { put(it.id, repository.offlinePath(it) != null) }
+            (starterCatalog + repository.discoveredTracks()).forEach { put(it.id, repository.offlinePath(it) != null) }
         }
     }
     val progress = remember { mutableStateMapOf<String, Float>() }
-    val songs = remember(deviceSongs) { starterCatalog + deviceSongs }
+    val songs = remember(deviceSongs, discoveredSongs) {
+        (starterCatalog + deviceSongs + discoveredSongs).distinctBy { it.id }
+    }
     var page by remember { mutableStateOf(Page.HOME) }
     var fullPlayer by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -224,6 +227,12 @@ private fun MusicApp() {
                     progress = progress,
                     onPlay = { play(it, songs) },
                     onDownload = ::startDownload,
+                    onOnlineResults = { results ->
+                        if (results.isNotEmpty()) {
+                            discoveredSongs = repository.rememberSearchResults(results)
+                            results.forEach { song -> downloaded[song.id] = repository.offlinePath(song) != null }
+                        }
+                    },
                     modifier = Modifier.padding(padding)
                 )
                 Page.LIBRARY -> LibraryScreen(
@@ -609,9 +618,36 @@ private fun SongRow(
 @Composable
 private fun SearchScreen(
     songs: List<Song>, offline: Map<String, Boolean>, progress: Map<String, Float>,
-    onPlay: (Song) -> Unit, onDownload: (Song) -> Unit, modifier: Modifier = Modifier
+    onPlay: (Song) -> Unit, onDownload: (Song) -> Unit,
+    onOnlineResults: (List<Song>) -> Unit, modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
+    val onlineSearch = remember { CommonsMusicSearch() }
+    var loadingOnline by remember { mutableStateOf(false) }
+    var liveMessage by remember { mutableStateOf("") }
+    LaunchedEffect(query) {
+        val text = query.trim()
+        liveMessage = ""
+        loadingOnline = false
+        if (text.length < 3) return@LaunchedEffect
+        delay(600) // Debounce requests while the user is typing.
+        loadingOnline = true
+        try {
+            val found = onlineSearch.search(text)
+            if (isActive) {
+                onOnlineResults(found)
+                liveMessage = if (found.isEmpty()) {
+                    "No confirmed CC0/public-domain Ogg matches for this search."
+                } else {
+                    "Found ${found.size} licensed recordings from Wikimedia Commons"
+                }
+            }
+        } catch (e: Exception) {
+            if (isActive) liveMessage = e.message ?: "Online search is unavailable."
+        } finally {
+            if (isActive) loadingOnline = false
+        }
+    }
     var category by remember { mutableStateOf("All") }
     val results = remember(songs, query, category, offline.toMap()) {
         songs.filter { song ->
@@ -701,6 +737,19 @@ private fun SearchScreen(
                 }
             }
         }
+        if (query.trim().length >= 3) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    if (loadingOnline) CircularProgressIndicator(
+                        modifier = Modifier.size(17.dp), strokeWidth = 2.dp, color = accent)
+                    else Icon(Icons.Default.Public, null, tint = accent, modifier = Modifier.size(17.dp))
+                    Text(if (loadingOnline) "Finding real, reusable recordings…" else
+                        liveMessage.ifBlank { "Online music search · Commons CC0/public domain" },
+                        color = muted, fontSize = 12.sp)
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (query.isBlank() && category == "All") "Popular in Pulse" else "Tracks",
@@ -716,7 +765,7 @@ private fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Default.SearchOff, null, tint = muted, modifier = Modifier.size(38.dp))
                     Text("No songs found", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ink)
-                    Text("Try a different title, artist or genre. Only authorized recordings can play here.",
+                    Text("Try a different title or artist. Search covers your library and CC0/public-domain recordings online.",
                         fontSize = 12.sp, color = muted, textAlign = TextAlign.Center)
                 }
             }
