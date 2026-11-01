@@ -23,7 +23,9 @@ data class Song(
     val sourcePage: String = "",
     val license: String = "",
     val isDeviceFile: Boolean = false,
-    val gradient: Int = 0
+    val gradient: Int = 0,
+    val genre: String = "Classical",
+    val durationSeconds: Int = 0
 )
 
 val publicDomainDemos = listOf(
@@ -46,6 +48,56 @@ val publicDomainDemos = listOf(
         gradient = 1
     )
 )
+
+/** Curated Wikimedia Commons recordings: track metadata, author, source and license checked.
+ * Small demo catalog, NOT a general music service. Rights and hosting must be rechecked
+ * before a commercial launch. Each recording uses Wikimedia's canonical redirect endpoint.
+ */
+private fun commonsTrack(
+    id: String, title: String, artist: String, filename: String,
+    license: String, genre: String, seconds: Int, gradient: Int
+): Song {
+    val encoded = Uri.encode(filename)
+    return Song(id = id, title = title, artist = artist,
+        streamUrl = "https://commons.wikimedia.org/wiki/Special:Redirect/file/" + encoded,
+        sourcePage = "https://commons.wikimedia.org/wiki/File:" + encoded,
+        license = license, genre = genre, durationSeconds = seconds, gradient = gradient)
+}
+
+val curatedCommonsTracks = listOf(
+    commonsTrack("cc0-smells-like-rain", "Smells Like Rain", "Thecolororangeiscool",
+        "Smells Like Rain.ogg", "CC0 1.0 · original by Thecolororangeiscool",
+        "Indie", 180, 3),
+    commonsTrack("cc0-one-cool-minute", "One Cool Minute", "Loyalty Freak Music",
+        "Loyalty Freak Music - 02 - One Cool Minute.ogg",
+        "CC0 1.0 · Loyalty Freak Music", "Electronic", 193, 4),
+    commonsTrack("cc0-everyone-alive", "Everyone Is So Alive", "Loyalty Freak Music",
+        "Loyalty Freak Music - 01 - Everyone is so alive.ogg",
+        "CC0 1.0 · Loyalty Freak Music", "Electronic", 255, 0),
+    commonsTrack("cc0-work", "Work", "Loyalty Freak Music",
+        "Loyalty Freak Music - 13 - Work.ogg",
+        "CC0 1.0 · Loyalty Freak Music", "Electronic", 145, 1),
+    commonsTrack("cc0-everyone", "Everyone", "Loyalty Freak Music",
+        "Loyalty Freak Music - 06 - Everyone.ogg",
+        "CC0 1.0 · Loyalty Freak Music", "Electronic", 289, 2),
+    commonsTrack("cc0-no-cadillac", "No Cadillac", "Loyalty Freak Music",
+        "Loyalty Freak Music - No Cadillac.ogg",
+        "CC0 1.0 · Loyalty Freak Music", "Electronic", 171, 3),
+    commonsTrack("cc0-chopin-nocturne", "Nocturne in E Minor", "Frédéric Chopin · Peter Johnston",
+        "Chopin Nocturne in Em, Op. posth. 72.ogg",
+        "CC0 1.0 · performance by Peter Johnston via Musopen", "Classical", 237, 2),
+    commonsTrack("cc0-horroriffic", "Horroriffic", "Kevin MacLeod",
+        "Kevin MacLeod - Horroriffic.ogg",
+        "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 168, 4),
+    commonsTrack("cc0-spaceship", "Alien Spaceship Atmosphere", "Kevin MacLeod",
+        "Kevin MacLeod - Alien Spaceship Atmosphere (cc0).ogg",
+        "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 124, 1),
+    commonsTrack("cc0-limit70", "Limit 70", "Kevin MacLeod",
+        "Kevin MacLeod - Limit 70.ogg",
+        "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 302, 0)
+)
+
+val starterCatalog: List<Song> = curatedCommonsTracks + publicDomainDemos
 
 class MusicRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("pulse-v1", Context.MODE_PRIVATE)
