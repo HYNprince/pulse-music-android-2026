@@ -88,6 +88,20 @@ class PlayerEngine(private val context: Context, private val repo: MusicReposito
     fun toggle() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled; shuffle = it.shuffleModeEnabled } }
     fun toggleRepeat() { controller?.let { it.repeatMode = if (it.repeatMode == Player.REPEAT_MODE_OFF) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF; repeat = it.repeatMode != Player.REPEAT_MODE_OFF } }
+    fun currentQueue(): List<Song> {
+        val p = controller ?: return emptyList()
+        return (0 until p.mediaItemCount).mapNotNull { index ->
+            tracks[p.getMediaItemAt(index).mediaId]
+        }
+    }
+    fun jumpTo(song: Song) {
+        val p = controller ?: return
+        val index = (0 until p.mediaItemCount).firstOrNull {
+            p.getMediaItemAt(it).mediaId == song.id
+        } ?: return
+        p.seekTo(index, 0L)
+        p.play()
+    }
     fun next() { controller?.let { if (it.hasNextMediaItem()) it.seekToNextMediaItem() } }
     fun previous() { controller?.let { if (it.hasPreviousMediaItem()) it.seekToPreviousMediaItem() else it.seekTo(0) } }
     fun seek(fraction: Float) {
