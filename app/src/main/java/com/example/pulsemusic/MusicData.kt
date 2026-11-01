@@ -115,6 +115,46 @@ class MusicRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("pulse-v1", Context.MODE_PRIVATE)
     private val offlineDir = File(context.filesDir, "offline").apply { mkdirs() }
 
+    /** Persist licensed Commons search discoveries for recent playback, favorites and offline library. */
+    fun discoveredTracks(): List<Song> = runCatching {
+        val arr = JSONArray(prefs.getString("discoveredCommons", "[]") ?: "[]")
+        buildList {
+            for (i in 0 until minOf(120, arr.length())) {
+                val item = arr.optJSONObject(i) ?: continue
+                val id = item.optString("id")
+                val source = item.optString("sourcePage")
+                val stream = item.optString("streamUrl")
+                if (!id.startsWith("commons-") ||
+                    !source.startsWith("https://commons.wikimedia.org/wiki/File:") ||
+                    !stream.startsWith("https://commons.wikimedia.org/wiki/Special:Redirect/file/")) continue
+                val license = item.optString("license")
+                if (!license.startsWith("CC0") && !license.startsWith("Public domain")) continue
+                add(Song(
+                    id = id, title = item.optString("title").take(130),
+                    artist = item.optString("artist").take(92),
+                    streamUrl = stream, sourcePage = source, license = license,
+                    genre = "Commons", gradient = item.optInt("gradient", 0).coerceIn(0, 4)
+                ))
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    /** Newest results first; capped so searches never grow the on-device catalog indefinitely. */
+    fun rememberSearchResults(found: List<Song>): List<Song> {
+        if (found.isEmpty()) return discoveredTracks()
+        val updated = (found + discoveredTracks()).distinctBy { it.id }.take(120)
+        val json = JSONArray().apply {
+            updated.forEach { s ->
+                put(JSONObject().put("id", s.id).put("title", s.title)
+                    .put("artist", s.artist).put("streamUrl", s.streamUrl)
+                    .put("sourcePage", s.sourcePage).put("license", s.license)
+                    .put("gradient", s.gradient))
+            }
+        }
+        prefs.edit().putString("discoveredCommons", json.toString()).apply()
+        return updated
+    }
+
     fun favorites(): Set<String> = prefs.getStringSet("favoriteIds", emptySet())?.toSet() ?: emptySet()
     fun setFavorites(ids: Set<String>) { prefs.edit().putStringSet("favoriteIds", ids).apply() }
 
