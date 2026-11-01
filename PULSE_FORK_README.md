@@ -4,7 +4,7 @@
 
 ## What was changed
 
-- Gmac app name and an original green original silver waveform launcher/app logo
+- Gmac app name and an original green bat-emblem test launcher artwork
 - Independent Android application ID: `com.gmac.player`
 - Updated visible application labels and selected user-facing strings
 - Disabled the upstream updater so this fork will not fetch MetroList releases
@@ -24,3 +24,11 @@ This application is not endorsed by MetroList, Google, YouTube or Spotify. It us
 ## Building
 
 See `https://github.com/HYNprince/pulse-music-android-2026/actions` for our separate test APK workflow. This is a **debug build**, not a production-signed Google Play release. The original Pulse prototype remains available on the repository's `main` branch, and the unmodified MetroList snapshot remains on `metrolist-source`.
+
+## Beta artwork and trademark caveat
+
+The bat-emblem test launcher was traced from user-provided Batman-style artwork. The image is **not licensed or cleared for commercial/public branding**; public releases should replace it with a separately cleared original logo. Changing the image or app name does not transfer any Batman, MetroList, YouTube, or music copyrights to the fork author.
+
+## Performance beta
+
+The `beta` build type uses R8 code/resource shrinking and `isDebuggable = false`. Its test package has a `.beta` application ID suffix to protect existing Gmac installation data. Device testing is still needed; a lag-free result is not guaranteed.
