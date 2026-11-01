@@ -91,6 +91,8 @@ private enum class LibraryFilter { ALL, DOWNLOADED, FAVORITES }
 private fun MusicApp() {
     val context = LocalContext.current
     val repository = remember { MusicRepository(context) }
+    val playlistStore = remember { PlaylistImportStore(context) }
+    var importedPlaylists by remember { mutableStateOf(playlistStore.savedPlaylists()) }
     val engine = remember { PlayerEngine(context, repository) }
     var deviceSongs by remember { mutableStateOf(repository.importedFiles()) }
     var favorites by remember { mutableStateOf(repository.favorites()) }
@@ -111,6 +113,19 @@ private fun MusicApp() {
             deviceSongs = repository.addDeviceFiles(uris)
             page = Page.LIBRARY
             scope.launch { snackbar.showSnackbar("Added ${uris.size} audio file(s) to your library") }
+        }
+    }
+    val spotifyFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching { playlistStore.importSpotifyExport(uri) }
+                .onSuccess { playlists ->
+                    importedPlaylists = playlists
+                    page = Page.LIBRARY
+                    snackbar.showSnackbar("Imported ${playlists.size} playlist(s) · titles and artists only")
+                }
+                .onFailure { error ->
+                    snackbar.showSnackbar("Import failed: ${error.message ?: "Invalid playlist file"}")
+                }
         }
     }
     DisposableEffect(engine) {
@@ -216,6 +231,8 @@ private fun MusicApp() {
                     favorites = favorites,
                     downloaded = downloaded,
                     progress = progress,
+                    importedPlaylists = importedPlaylists,
+                    onImportSpotify = { spotifyFilePicker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     onPlay = { song, queue -> play(song, queue) },
                     onFavorite = ::toggleFavorite,
                     onDownload = ::startDownload,
@@ -621,8 +638,16 @@ private fun CategoryTile(title: String, tint: Color, modifier: Modifier = Modifi
 private fun LibraryScreen(
     songs: List<Song>, favorites: Set<String>, downloaded: Map<String, Boolean>, progress: Map<String, Float>,
     onPlay: (Song, List<Song>) -> Unit, onFavorite: (Song) -> Unit,
-    onDownload: (Song) -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier
+    onDownload: (Song) -> Unit, onImport: () -> Unit,
+    importedPlaylists: List<ImportedPlaylist>, onImportSpotify: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    var selectedPlaylist by remember { mutableStateOf<String?>(null) }
+    val displayedPlaylist = importedPlaylists.firstOrNull { it.name == selectedPlaylist }
+    if (displayedPlaylist != null) {
+        ImportedPlaylistScreen(displayedPlaylist, songs, onPlay, onBack = { selectedPlaylist = null }, modifier)
+        return
+    }
     var filter by remember { mutableStateOf(LibraryFilter.ALL) }
     var searchOpen by remember { mutableStateOf(false) }
     var libraryQuery by remember { mutableStateOf("") }
@@ -705,6 +730,43 @@ private fun LibraryScreen(
                 }
             }
         }
+        if (filter != LibraryFilter.DOWNLOADED) {
+            item {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                    .background(surface).clickable(onClick = onImportSpotify)
+                    .padding(horizontal = 13.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PlaylistAdd, null, tint = accent, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.width(13.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Import Spotify playlist file", color = ink, fontWeight = FontWeight.SemiBold)
+                        Text("Private JSON import · titles & artists only", color = muted, fontSize = 11.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
+            }
+            if (importedPlaylists.isNotEmpty()) {
+                item { Text("Imported playlists", color = ink, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                items(importedPlaylists, key = { it.name }) { playlist ->
+                    Row(Modifier.fillMaxWidth().clickable { selectedPlaylist = playlist.name }
+                        .padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(58.dp).background(
+                            Brush.linearGradient(listOf(Color(0xFF316A51), Color(0xFF163F32)))),
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.QueueMusic, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(playlist.name, color = ink, fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text("Imported · ${playlist.tracks.size} entries · metadata only",
+                                color = muted, fontSize = 11.sp)
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = muted)
+                    }
+                }
+            }
+        }
         item {
             Text(when(filter) {
                 LibraryFilter.ALL -> "All tracks"
@@ -730,6 +792,65 @@ private fun LibraryScreen(
                 Icon(Icons.Default.AddCircleOutline, "Add local files", tint = ink)
                 Spacer(Modifier.width(12.dp))
                 Text("Import audio files from device", color = ink, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportedPlaylistScreen(
+    playlist: ImportedPlaylist, songs: List<Song>,
+    onPlay: (Song, List<Song>) -> Unit, onBack: () -> Unit, modifier: Modifier
+) {
+    val matches = remember(playlist, songs) {
+        playlist.tracks.map { track -> track to findPlayableMatch(track, songs) }
+    }
+    val playable = remember(matches) { matches.mapNotNull { it.second }.distinctBy { it.id } }
+    LazyColumn(modifier.fillMaxSize().background(base),
+        contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        item {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back to library", tint = ink) }
+        }
+        item {
+            Box(Modifier.size(188.dp).background(
+                Brush.linearGradient(listOf(Color(0xFF336B51), Color(0xFF23364A)))),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.QueueMusic, null, tint = Color.White, modifier = Modifier.size(76.dp))
+            }
+        }
+        item {
+            Text(playlist.name, fontSize = 30.sp, fontWeight = FontWeight.Black, color = ink)
+            Text("${playlist.tracks.size} tracks imported · ${playable.size} playable matches",
+                fontSize = 13.sp, color = muted)
+            Spacer(Modifier.height(7.dp))
+            Text("Imported from a Spotify account-data file. Original audio isn't included. Unavailable tracks are shown for reference only.",
+                fontSize = 12.sp, color = muted)
+        }
+        if (playable.isNotEmpty()) item {
+            Button(onClick = { onPlay(playable.first(), playable) },
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black),
+                shape = CircleShape) {
+                Icon(Icons.Default.PlayArrow, null)
+                Text("Play available tracks", fontWeight = FontWeight.Bold)
+            }
+        }
+        items(matches, key = { "${it.first.title}:${it.first.artist}:${matches.indexOf(it)}" }) { (track, match) ->
+            Row(Modifier.fillMaxWidth().then(if (match != null) Modifier.clickable { onPlay(match, playable) } else Modifier)
+                .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (match != null) MusicCover(match, 51.dp)
+                else Box(Modifier.size(51.dp).background(surfaceAlt), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.MusicNote, null, tint = muted)
+                }
+                Spacer(Modifier.width(13.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(track.title, color = ink, fontSize = 14.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(track.artist, color = muted, fontSize = 12.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (match == null) "Not in current licensed catalog" else "Playable",
+                        color = if (match == null) muted else accent, fontSize = 10.sp)
+                }
+                if (match != null) Icon(Icons.Default.PlayArrow, "Play", tint = accent)
             }
         }
     }
