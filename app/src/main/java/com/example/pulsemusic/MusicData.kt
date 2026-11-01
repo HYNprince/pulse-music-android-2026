@@ -129,7 +129,8 @@ class MusicRepository(private val context: Context) {
                 artist = "On your device",
                 streamUrl = obj.getString("uri"),
                 isDeviceFile = true,
-                gradient = 2 + (index % 3)
+                gradient = 2 + (index % 3),
+                genre = "Local"
             )
         }
     }.getOrDefault(emptyList())
@@ -147,7 +148,7 @@ class MusicRepository(private val context: Context) {
             }.getOrNull() ?: "Local audio"
             val cleanName = name.substringBeforeLast('.', name).replace('_', ' ')
             val id = "device:${uri}"
-            songs[id] = Song(id, cleanName, "On your device", uri.toString(), isDeviceFile = true, gradient = 2)
+            songs[id] = Song(id, cleanName, "On your device", uri.toString(), isDeviceFile = true, gradient = 2, genre = "Local")
         }
         val result = songs.values.toList()
         val json = JSONArray().apply {
