@@ -834,7 +834,7 @@ private fun ImportedPlaylistScreen(
                 Text("Play available tracks", fontWeight = FontWeight.Bold)
             }
         }
-        items(matches, key = { "${it.first.title}:${it.first.artist}:${matches.indexOf(it)}" }) { (track, match) ->
+        items(matches) { (track, match) ->
             Row(Modifier.fillMaxWidth().then(if (match != null) Modifier.clickable { onPlay(match, playable) } else Modifier)
                 .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (match != null) MusicCover(match, 51.dp)
