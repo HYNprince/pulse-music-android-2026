@@ -98,11 +98,11 @@ private fun MusicApp() {
     var favorites by remember { mutableStateOf(repository.favorites()) }
     val downloaded = remember {
         mutableStateMapOf<String, Boolean>().apply {
-            publicDomainDemos.forEach { put(it.id, repository.offlinePath(it) != null) }
+            starterCatalog.forEach { put(it.id, repository.offlinePath(it) != null) }
         }
     }
     val progress = remember { mutableStateMapOf<String, Float>() }
-    val songs = remember(deviceSongs) { publicDomainDemos + deviceSongs }
+    val songs = remember(deviceSongs) { starterCatalog + deviceSongs }
     var page by remember { mutableStateOf(Page.HOME) }
     var fullPlayer by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -365,113 +365,174 @@ private fun HomeScreen(
     onImport: () -> Unit, onGoLibrary: () -> Unit, modifier: Modifier = Modifier
 ) {
     var homeFilter by remember { mutableStateOf("All") }
-    val listing = if (homeFilter == "Downloaded") songs.filter { it.isDeviceFile || offline[it.id] == true } else songs
-    val localTracks = listing.filter { it.isDeviceFile }
+    val listed = remember(songs, homeFilter, offline.toMap()) {
+        when(homeFilter) {
+            "Downloaded" -> songs.filter { it.isDeviceFile || offline[it.id] == true }
+            "Music" -> songs.filter { !it.isDeviceFile }
+            else -> songs
+        }
+    }
+    val device = listed.filter { it.isDeviceFile }
+    val electronic = listed.filter { it.genre == "Electronic" }.take(6)
+    val slow = listed.filter { it.genre == "Classical" || it.genre == "Ambient" }.take(6)
+    val discovery = listed.filter { !it.isDeviceFile && it.genre == "Indie" } +
+        listed.filter { !it.isDeviceFile && it.genre == "Electronic" }.take(3)
+    val featured = listed.firstOrNull { it.genre == "Indie" } ?: listed.firstOrNull()
+
     LazyColumn(
-        modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF242D24), base, base), endY = 850f)),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 34.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        modifier.fillMaxSize().background(Brush.verticalGradient(
+            listOf(Color(0xFF203328), Color(0xFF121914), base, base), endY = 960f
+        )),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Box(Modifier.size(39.dp).clip(CircleShape).background(Color(0xFF8E55BD)),
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF7752A4)),
                     contentAlignment = Alignment.Center) {
-                    Text("P", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("P", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
-                listOf("All", "Music", "Downloaded").forEach { value ->
-                    val chosen = homeFilter == value
+                listOf("All", "Music", "Downloaded").forEach { item ->
+                    val selected = item == homeFilter
                     Box(Modifier.clip(CircleShape)
-                        .background(if (chosen) accent else Color(0xFF303730))
-                        .clickable { homeFilter = value }
-                        .padding(horizontal = 17.dp, vertical = 10.dp)) {
-                        Text(value, color = if (chosen) Color.Black else ink, fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-        item {
-            val first = songs.firstOrNull()
-            val second = songs.getOrNull(1) ?: first
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickTile("Liked Songs", null, Color(0xFF44318D), Modifier.weight(1f), onGoLibrary)
-                    if (first != null) QuickTile(first.title, first, surface, Modifier.weight(1f)) { onPlay(first) }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickTile("Your downloads", null, Color(0xFF235E54), Modifier.weight(1f), onGoLibrary)
-                    if (second != null) QuickTile(second.title, second, surface, Modifier.weight(1f)) { onPlay(second) }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickTile("Local files", null, Color(0xFF695147), Modifier.weight(1f), onImport)
-                    QuickTile("Your Library", null, Color(0xFF434B61), Modifier.weight(1f), onGoLibrary)
-                }
-            }
-        }
-        if (listing.isEmpty()) item {
-            Text("No downloads yet. Choose a track and tap Download to save it offline.", color = muted)
-        }
-        // Avoid repeating the same two demo recordings across multiple carousels.
-        if (listing.size > 4) {
-            item {
-                SectionHeading("Jump back in", "")
-                Spacer(Modifier.height(14.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(listing.take(10), key = { it.id }) { song ->
-                        Column(Modifier.width(142.dp).clickable { onPlay(song) }) {
-                            MusicCover(song, 142.dp)
-                            Spacer(Modifier.height(8.dp))
-                            Text(song.title, color = ink, fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis)
-                            Text(song.artist, color = muted, fontSize = 11.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                        .background(if (selected) accent else Color(0xFF2B302D))
+                        .clickable { homeFilter = item }
+                        .padding(horizontal = 15.dp, vertical = 9.dp)) {
+                        Text(item, color = if (selected) Color.Black else ink,
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
         if (homeFilter != "Downloaded") {
             item {
-                SectionHeading("Explore free recordings", "")
-                Spacer(Modifier.height(14.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(publicDomainDemos, key = { it.id }) { song ->
-                        Column(Modifier.width(148.dp).clickable { onPlay(song) }) {
-                            MusicCover(song, 148.dp)
-                            Spacer(Modifier.height(8.dp))
-                            Text(song.title, color = ink, fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis)
-                            Text(song.artist.substringBefore("·").trim(), color = muted,
-                                fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.fillMaxWidth().height(166.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Brush.horizontalGradient(listOf(
+                        Color(0xFF1F5F4B), Color(0xFF204E4B), Color(0xFF202F44))))
+                    .clickable { featured?.let(onPlay) }, verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f).padding(start = 18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("DISCOVER • NO ADS", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.3.sp, color = Color.White.copy(alpha = .78f))
+                        Text("Music for your\nnext moment", color = Color.White, fontSize = 23.sp,
+                            fontWeight = FontWeight.ExtraBold, lineHeight = 26.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.clip(CircleShape).background(accent)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)) {
+                                Text("Listen now", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text("Licensed music", color = Color.White.copy(alpha = .72f), fontSize = 10.sp)
+                        }
+                    }
+                    if (featured != null) {
+                        Box(Modifier.width(138.dp).fillMaxHeight().padding(9.dp),
+                            contentAlignment = Alignment.Center) {
+                            MusicCover(featured, 126.dp, radius = 7.dp)
                         }
                     }
                 }
             }
         }
-        if (localTracks.isNotEmpty()) {
-            item {
-                SectionHeading("Your device music", "")
-                Spacer(Modifier.height(8.dp))
-            }
-            items(localTracks, key = { it.id }) { song ->
-                SongRow(song, favorite = song.id in favorites,
-                    offline = true, progress = null, onPlay = { onPlay(song) },
-                    onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
-            }
-        }
         item {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(surface)
-                .clickable(onClick = onImport).padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.FolderOpen, "Import from phone", tint = accent)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text("Add songs from your phone", color = ink, fontWeight = FontWeight.SemiBold)
-                    Text("MP3, FLAC, OGG and other supported files", color = muted, fontSize = 12.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    QuickTile("Liked Songs", null, Color(0xFF4A348A), Modifier.weight(1f), onGoLibrary)
+                    QuickTile("Downloads", null, Color(0xFF20564A), Modifier.weight(1f), onGoLibrary)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    QuickTile("Local files", null, Color(0xFF5C4B41), Modifier.weight(1f), onImport)
+                    QuickTile("Your Library", null, Color(0xFF35445A), Modifier.weight(1f), onGoLibrary)
                 }
             }
         }
+        if (listed.isEmpty()) {
+            item {
+                Text("No tracks saved yet. Download a licensed recording or add music from your phone.",
+                    color = muted, fontSize = 13.sp)
+            }
+        }
+        if (discovery.isNotEmpty() && homeFilter != "Downloaded") {
+            item {
+                SectionHeading("Fresh discoveries", "Independent music · full-length tracks")
+                Spacer(Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                    items(discovery.distinctBy { it.id }, key = { it.id }) { song ->
+                        PremiumMusicCard(song, onPlay = { onPlay(song) })
+                    }
+                }
+            }
+        }
+        if (electronic.isNotEmpty()) {
+            item {
+                SectionHeading("Electronic energy", "Find your next favorite")
+                Spacer(Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                    items(electronic, key = { it.id }) { song ->
+                        PremiumMusicCard(song, onPlay = { onPlay(song) })
+                    }
+                }
+            }
+        }
+        if (slow.isNotEmpty()) {
+            item {
+                SectionHeading("After hours", "Classical and cinematic atmospheres")
+                Spacer(Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                    items(slow, key = { it.id }) { song ->
+                        PremiumMusicCard(song, onPlay = { onPlay(song) })
+                    }
+                }
+            }
+        }
+        if (device.isNotEmpty()) {
+            item { SectionHeading("Your own music", "Stored on your phone") }
+            items(device, key = { it.id }) { song ->
+                SongRow(song, favorite = song.id in favorites, offline = true,
+                    progress = null, onPlay = { onPlay(song) },
+                    onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
+            }
+        }
+        if (homeFilter == "Downloaded") {
+            items(listed.filter { !it.isDeviceFile }, key = { it.id }) { song ->
+                SongRow(song, favorite = song.id in favorites,
+                    offline = true, progress = progress[song.id],
+                    onPlay = { onPlay(song) }, onFavorite = { onFavorite(song) },
+                    onDownload = { onDownload(song) })
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
+                .background(surface).clickable(onClick = onImport)
+                .padding(horizontal = 16.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.FolderOpen, "Import audio", tint = accent)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Add music from your device", fontSize = 13.sp,
+                        color = ink, fontWeight = FontWeight.SemiBold)
+                    Text("Private, offline and always available", fontSize = 11.sp, color = muted)
+                }
+                Icon(Icons.Default.ChevronRight, null, tint = muted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumMusicCard(song: Song, onPlay: () -> Unit) {
+    Column(Modifier.width(152.dp).clickable(onClick = onPlay)) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            MusicCover(song, 152.dp, radius = 6.dp)
+            Box(Modifier.padding(8.dp).size(36.dp).background(accent, CircleShape),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PlayArrow, "Play", tint = Color.Black, modifier = Modifier.size(24.dp))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(song.title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ink,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(song.artist, fontSize = 11.sp, color = muted,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -523,7 +584,7 @@ private fun SongRow(
                     Icon(Icons.Default.DownloadDone, null, tint = accent, modifier = Modifier.size(13.dp))
                     Spacer(Modifier.width(3.dp))
                 }
-                Text(song.artist, color = muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (song.isDeviceFile) song.artist else "${song.artist} · ${song.genre}", color = muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = accent) }
         }
