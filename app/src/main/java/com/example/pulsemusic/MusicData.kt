@@ -235,7 +235,8 @@ class MusicRepository(private val context: Context) {
                     error("Interrupted download. Tap Download again to resume")
                 }
                 // Prevent HTML error responses from appearing as downloaded audio.
-                val signature = partial.inputStream().use { it.readNBytes(4) }
+                val signature = ByteArray(4)
+                java.io.RandomAccessFile(partial, "r").use { it.readFully(signature) }
                 if (!signature.contentEquals(byteArrayOf(79, 103, 103, 83))) {
                     partial.delete()
                     error("The music host did not return a valid Ogg audio file")
