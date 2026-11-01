@@ -94,7 +94,19 @@ val curatedCommonsTracks = listOf(
         "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 124, 1),
     commonsTrack("cc0-limit70", "Limit 70", "Kevin MacLeod",
         "Kevin MacLeod - Limit 70.ogg",
-        "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 302, 0)
+        "CC0 1.0 · Kevin MacLeod via FreePD", "Ambient", 302, 0),
+    commonsTrack("cc0-synth-pop", "Synth Pop with 4 on the Floor", "Mesostic",
+        "Synth pop with 4 on the floor.ogg",
+        "CC0 1.0 · original song by Mesostic", "Electronic", 198, 2),
+    commonsTrack("cc0-juno-synth", "Juno-60 & Jupiter-4", "Raymangold22",
+        "Juno-60-jp4.ogg",
+        "CC0 1.0 · original synth recording by Raymangold22", "Electronic", 189, 4),
+    commonsTrack("cc0-gamebgm", "Game BGM", "Yuyuyunoyuusuke1",
+        "GameBGM.ogg",
+        "CC0 1.0 · original composition by Yuyuyunoyuusuke1", "Electronic", 237, 3),
+    commonsTrack("cc0-stilly-night", "Oft in the Stilly Night", "Endersslay",
+        "Oft in the Stilly Night.ogg",
+        "CC0 1.0 · violin performance by Endersslay", "Classical", 83, 1)
 )
 
 val starterCatalog: List<Song> = curatedCommonsTracks + publicDomainDemos
