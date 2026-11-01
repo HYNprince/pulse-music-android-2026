@@ -40,9 +40,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh auth setup-git
+          # The upstream checkout is shallow. Make a new root commit pointing
+          # at the EXACT upstream source tree; do not alter the source files.
+          # This avoids pushing an incomplete shallow Git history.
+          snapshot_tree="$(git -C upstream rev-parse HEAD^{tree})"
+          snapshot_sha="$(printf '%s\\n' \
+            'chore(import): exact MetroList GPL-3.0 source snapshot' \
+            '' \
+            'Upstream: https://github.com/MetrolistGroup/Metrolist' \
+            'Commit: 876e355181fd3b04e7063b10442fef1b721d53b3' \
+            'License: GPL-3.0 (see LICENSE)' \
+            | git -C upstream -c user.name='Pulse Source Import' \
+              -c user.email='import@users.noreply.github.com' commit-tree "$snapshot_tree")"
           git -C upstream push \
             "https://github.com/${{ github.repository }}.git" \
-            HEAD:refs/heads/metrolist-source
+            "$snapshot_sha":refs/heads/metrolist-source
 
       - name: Print separate source branch link
         run: |
