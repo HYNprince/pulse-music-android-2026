@@ -2,6 +2,8 @@
 
 **Gmac** is a community project based on [MetroList](https://github.com/MetrolistGroup/Metrolist). It uses MetroList's existing Android playback, YouTube Music integration, search, playlists, downloads, and lyrics implementation, with an independent Gmac name, launcher icon, and application ID.
 
+**Logo notice:** The test beta uses a bat emblem derived from user-provided artwork. This branding may infringe third-party rights if publicly distributed; public releases should use licensed or independently original branding.
+
 **Current status:** Android test build. Not affiliated with MetroList or YouTube. Upstream streaming interfaces may change, and using the GPL-3.0 source does not itself grant licenses to stream or redistribute copyrighted music.
 
 **License and credits:** GNU GPL-3.0. Original MetroList authors retain copyright in the upstream code and assets. This fork retains [LICENSE](LICENSE) and original notices. The source attribution is recorded in [Gmac's changes and attribution](PULSE_FORK_README.md).
