@@ -40,12 +40,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh auth setup-git
-          # The upstream checkout is shallow. Make a new root commit pointing
-          # at the EXACT upstream source tree; do not alter the source files.
-          # This avoids pushing an incomplete shallow Git history.
-          snapshot_tree="$(git -C upstream rev-parse HEAD^{tree})"
+          # GitHub's repository token cannot create files in .github/workflows
+          # without workflow permission. Preserve the upstream CI examples in
+          # UPSTREAM_CI_WORKFLOWS; do not alter any Android application sources.
+          if [ -d upstream/.github/workflows ]; then
+            mv upstream/.github/workflows upstream/UPSTREAM_CI_WORKFLOWS
+          fi
+          printf '%s\\n' \
+            '# MetroList GPL-3.0 upstream snapshot' \
+            '' \
+            'This branch contains the MetroList Android source, based on:' \
+            'https://github.com/MetrolistGroup/Metrolist' \
+            '' \
+            'Upstream commit: 876e355181fd3b04e7063b10442fef1b721d53b3' \
+            'License: GPL-3.0, with original notices preserved.' \
+            '' \
+            'Only the upstream GitHub Actions YAML files were moved from' \
+            '.github/workflows to UPSTREAM_CI_WORKFLOWS to satisfy GitHub' \
+            'App permission restrictions. No Android app code was changed.' \
+            > upstream/PULSE_UPSTREAM_SOURCE_NOTICE.md
+          git -C upstream add -A
+          # Create an independent root commit from this same app source tree
+          # so we can publish without incomplete shallow Git history.
+          snapshot_tree="$(git -C upstream write-tree)"
           snapshot_sha="$(printf '%s\\n' \
-            'chore(import): exact MetroList GPL-3.0 source snapshot' \
+            'chore(import): MetroList GPL-3.0 app source; relocated CI workflow examples' \
             '' \
             'Upstream: https://github.com/MetrolistGroup/Metrolist' \
             'Commit: 876e355181fd3b04e7063b10442fef1b721d53b3' \
