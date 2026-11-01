@@ -1,0 +1,63 @@
+name: Publish Pulse Music test APK download
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-pulse-apk.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Get verified Pulse Music APK from successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: Pulse-Music-Metro-Engine-debug-APK
+          run-id: 41291296193
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: downloaded
+
+      - name: Prepare downloadable APK and open-source notices
+        run: |
+          mkdir -p release
+          find downloaded -maxdepth 8 -type f -print
+          apk_path="$(find downloaded -type f -name '*.apk' -print -quit)"
+          test -n "$apk_path"
+          cp "$apk_path" release/Pulse-Music-Metro-Beta.apk
+          unzip -t release/Pulse-Music-Metro-Beta.apk >/dev/null
+          license="$(find downloaded -type f -name LICENSE -print -quit)"
+          test -n "$license"
+          cp "$license" release/GPL-3.0-LICENSE.txt
+          cat > release/SOURCE-AND-CREDITS.txt <<'EOF'
+          Pulse Music Metro Engine — test-only GPL-3.0 Android app
+          Rebranded from MetroList, based on upstream source at:
+          https://github.com/MetrolistGroup/Metrolist
+          Pulse Music fork source and modifications:
+          https://github.com/HYNprince/pulse-music-android-2026/tree/pulse-metrolist
+          License: GNU GPL version 3; original authors retain copyright.
+          App is unofficial, not endorsed by MetroList, Spotify, YouTube, or Google.
+          This is a TEST build; do not distribute as a production app.
+          Service compatibility and music access are not guaranteed.
+          EOF
+          ls -lh release/
+
+      - name: Publish one-tap GitHub prerelease download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create pulse-metro-beta-2026-11-01 \
+            release/Pulse-Music-Metro-Beta.apk \
+            release/GPL-3.0-LICENSE.txt \
+            release/SOURCE-AND-CREDITS.txt \
+            --title "Pulse Music Metro Engine — Android test APK" \
+            --target pulse-metrolist \
+            --prerelease \
+            --notes "Unofficial GPL-3.0-based test release. Original MetroList authors retain their copyright. Source: https://github.com/${{ github.repository }}/tree/pulse-metrolist. Not production tested. YouTube Music service access may change."
