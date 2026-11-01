@@ -92,6 +92,8 @@ private fun MusicApp() {
     val context = LocalContext.current
     val repository = remember { MusicRepository(context) }
     val playlistStore = remember { PlaylistImportStore(context) }
+    val localPlaylistStore = remember { LocalPlaylists(context) }
+    var localPlaylists by remember { mutableStateOf(localPlaylistStore.list()) }
     var importedPlaylists by remember { mutableStateOf(playlistStore.savedPlaylists()) }
     val engine = remember { PlayerEngine(context, repository) }
     var deviceSongs by remember { mutableStateOf(repository.importedFiles()) }
@@ -202,6 +204,13 @@ private fun MusicApp() {
                 onBack = { fullPlayer = false },
                 onFavorite = { engine.current?.let(::toggleFavorite) },
                 onDownload = { engine.current?.let(::startDownload) },
+                userPlaylists = localPlaylists,
+                onAddToPlaylist = { playlistId ->
+                    engine.current?.let { song ->
+                        localPlaylists = localPlaylistStore.add(playlistId, song.id)
+                        scope.launch { snackbar.showSnackbar("Added to playlist") }
+                    }
+                },
                 onAttribution = { engine.current?.sourcePage?.takeIf(String::isNotBlank)?.let {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it)))
                 } },
@@ -241,6 +250,17 @@ private fun MusicApp() {
                     downloaded = downloaded,
                     progress = progress,
                     importedPlaylists = importedPlaylists,
+                    localPlaylists = localPlaylists,
+                    onCreatePlaylist = { title ->
+                        runCatching { localPlaylistStore.create(title) }.onSuccess {
+                            localPlaylists = it
+                        }.onFailure { error ->
+                            scope.launch { snackbar.showSnackbar(error.message ?: "Unable to create playlist") }
+                        }
+                    },
+                    onRemoveFromPlaylist = { playlistId, songId ->
+                        localPlaylists = localPlaylistStore.remove(playlistId, songId)
+                    },
                     onImportSpotify = { spotifyFilePicker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     onPlay = { song, queue -> play(song, queue) },
                     onFavorite = ::toggleFavorite,
@@ -877,8 +897,39 @@ private fun LibraryScreen(
     onPlay: (Song, List<Song>) -> Unit, onFavorite: (Song) -> Unit,
     onDownload: (Song) -> Unit, onImport: () -> Unit,
     importedPlaylists: List<ImportedPlaylist>, onImportSpotify: () -> Unit,
+    localPlaylists: List<LocalPlaylist>, onCreatePlaylist: (String) -> Unit,
+    onRemoveFromPlaylist: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedLocal by remember { mutableStateOf<String?>(null) }
+    var showCreatePlaylist by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+    if (showCreatePlaylist) {
+        AlertDialog(onDismissRequest = { showCreatePlaylist = false },
+            title = { Text("New playlist") },
+            text = {
+                OutlinedTextField(value = newPlaylistName, onValueChange = { newPlaylistName = it.take(65) },
+                    label = { Text("Playlist name") }, singleLine = true)
+            },
+            confirmButton = {
+                TextButton(enabled = newPlaylistName.isNotBlank(),
+                    onClick = {
+                        onCreatePlaylist(newPlaylistName)
+                        newPlaylistName = ""
+                        showCreatePlaylist = false
+                    }) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreatePlaylist = false }) { Text("Cancel") }
+            }
+        )
+    }
+    val activeLocal = localPlaylists.firstOrNull { it.id == selectedLocal }
+    if (activeLocal != null) {
+        LocalPlaylistScreen(activeLocal, songs, onPlay, onRemoveFromPlaylist,
+            onBack = { selectedLocal = null }, modifier = modifier)
+        return
+    }
     var selectedPlaylist by remember { mutableStateOf<String?>(null) }
     val displayedPlaylist = importedPlaylists.firstOrNull { it.name == selectedPlaylist }
     if (displayedPlaylist != null) {
@@ -969,6 +1020,39 @@ private fun LibraryScreen(
         }
         if (filter != LibraryFilter.DOWNLOADED) {
             item {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp))
+                    .background(surface).clickable { showCreatePlaylist = true }
+                    .padding(horizontal = 13.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AddCircle, "Create playlist", tint = accent)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Create your own playlist", fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.ChevronRight, null, tint = muted)
+                }
+            }
+            if (localPlaylists.isNotEmpty()) {
+                item {
+                    Text("Your playlists", fontSize = 20.sp, color = ink, fontWeight = FontWeight.Bold)
+                }
+                items(localPlaylists, key = { it.id }) { playlist ->
+                    Row(Modifier.fillMaxWidth().clickable { selectedLocal = playlist.id }
+                        .padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(58.dp).background(Color(0xFF446E61)),
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.LibraryMusic, null, tint = Color.White)
+                        }
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(playlist.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text("${playlist.trackIds.size} tracks · private playlist",
+                                fontSize = 12.sp, color = muted)
+                        }
+                        Icon(Icons.Default.ChevronRight, null, tint = muted)
+                    }
+                }
+            }
+            item {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
                     .background(surface).clickable(onClick = onImportSpotify)
                     .padding(horizontal = 13.dp, vertical = 14.dp),
@@ -1029,6 +1113,62 @@ private fun LibraryScreen(
                 Icon(Icons.Default.AddCircleOutline, "Add local files", tint = ink)
                 Spacer(Modifier.width(12.dp))
                 Text("Import audio files from device", color = ink, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalPlaylistScreen(
+    playlist: LocalPlaylist, songs: List<Song>,
+    onPlay: (Song, List<Song>) -> Unit,
+    onRemove: (String, String) -> Unit,
+    onBack: () -> Unit, modifier: Modifier = Modifier
+) {
+    val queue = remember(playlist, songs) {
+        playlist.trackIds.mapNotNull { id -> songs.firstOrNull { it.id == id } }
+    }
+    LazyColumn(modifier.fillMaxSize().background(
+        Brush.verticalGradient(listOf(Color(0xFF315A4A), base), endY = 700f)),
+        contentPadding = PaddingValues(17.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        item {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back", tint = ink) }
+        }
+        item {
+            Box(Modifier.size(175.dp).background(
+                Brush.linearGradient(listOf(Color(0xFF3A695A), Color(0xFF314B74)))),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.LibraryMusic, null, tint = Color.White, modifier = Modifier.size(75.dp))
+            }
+        }
+        item {
+            Text(playlist.name, fontSize = 29.sp, fontWeight = FontWeight.Black)
+            Text("${queue.size} available tracks · saved on this phone",
+                color = muted, fontSize = 12.sp)
+        }
+        if (queue.isNotEmpty()) {
+            item {
+                Button(onClick = { onPlay(queue.first(), queue) },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Text("Play playlist")
+                }
+            }
+        } else {
+            item {
+                Text("No tracks yet. Open Now Playing on a song and select Add to playlist.",
+                    color = muted, fontSize = 13.sp)
+            }
+        }
+        items(queue, key = { it.id }) { song ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    SongRow(song, favorite = false, offline = song.isDeviceFile,
+                        progress = null, onPlay = { onPlay(song, queue) }, onDownload = {})
+                }
+                IconButton(onClick = { onRemove(playlist.id, song.id) }) {
+                    Icon(Icons.Default.RemoveCircleOutline, "Remove from playlist", tint = muted)
+                }
             }
         }
     }
