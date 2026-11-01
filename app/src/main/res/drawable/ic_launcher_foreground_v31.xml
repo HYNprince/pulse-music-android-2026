@@ -1,11 +1,6 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Gmac: independently drawn angular audio-wing emblem, not a Batman logo. -->
-    <path android:fillColor="#D9DFE8"
-        android:pathData="M17,48 L30,44 L40,51 L50,32 L58,32 L68,51 L78,44 L91,48 L80,65 L68,62 L54,80 L40,62 L28,65 Z"/>
-    <path android:fillColor="#7D93A7"
-        android:pathData="M36,55 L44,56 L54,42 L64,56 L72,55 L68,62 L54,72 L40,62 Z"/>
-    <path android:fillColor="#0A0E15"
-        android:pathData="M48,43 L54,32 L60,43 L54,51 Z"/>
+    <!-- Bat-emblem silhouette traced from user-provided artwork; not an original Gmac trademark. -->
+    <path android:fillColor="#DEE1E7" android:pathData="M94.86,39.15 L67.86,39.00 L66.71,43.15 L64.00,45.07 L57.86,45.67 L56.71,43.89 L56.57,42.11 L55.29,43.30 L52.86,43.15 L52.00,42.11 L51.14,45.37 L48.71,45.81 L45.71,45.37 L43.29,44.33 L41.86,42.85 L40.71,39.30 L13.00,39.44 L15.86,40.33 L22.00,44.04 L24.57,47.74 L25.86,51.59 L25.86,54.26 L25.86,53.22 L26.43,53.52 L26.29,55.15 L26.86,54.85 L28.00,55.59 L27.14,56.04 L36.43,56.19 L41.86,57.07 L45.43,58.26 L50.14,61.22 L51.71,62.85 L54.00,66.85 L53.71,65.96 L54.14,65.81 L54.43,66.70 L59.14,60.63 L64.86,57.37 L72.86,55.89 L82.43,55.59 L82.86,54.85 L82.57,50.41 L84.43,46.41 L88.57,42.70 Z"/>
 </vector>
