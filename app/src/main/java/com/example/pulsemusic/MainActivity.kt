@@ -326,9 +326,10 @@ private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radi
                     fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .78f),
                     letterSpacing = .5.sp, maxLines = 1)
                 Column {
-                    Text(song.title.uppercase(),
-                        fontSize = (size.value * .16f).coerceIn(11f, 29f).sp,
-                        fontWeight = FontWeight.Black, lineHeight = (size.value * .16f).coerceIn(11f, 30f).sp,
+                    Text(song.title,
+                        fontSize = (size.value * .09f).coerceIn(10f, 19f).sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = (size.value * .11f).coerceIn(12f, 21f).sp,
                         color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(song.artist.substringBefore("·").trim(),
                         fontSize = (size.value * .07f).coerceIn(7f, 11f).sp,
@@ -347,6 +348,7 @@ private fun HomeScreen(
 ) {
     var homeFilter by remember { mutableStateOf("All") }
     val listing = if (homeFilter == "Downloaded") songs.filter { it.isDeviceFile || offline[it.id] == true } else songs
+    val localTracks = listing.filter { it.isDeviceFile }
     LazyColumn(
         modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF242D24), base, base), endY = 850f)),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 34.dp),
@@ -391,44 +393,55 @@ private fun HomeScreen(
         if (listing.isEmpty()) item {
             Text("No downloads yet. Choose a track and tap Download to save it offline.", color = muted)
         }
-        item {
-            SectionHeading("Jump back in", "")
-            Spacer(Modifier.height(16.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(listing.take(12), key = { it.id }) { song ->
-                    Column(Modifier.width(148.dp).clickable { onPlay(song) }) {
-                        MusicCover(song, 148.dp)
-                        Spacer(Modifier.height(9.dp))
-                        Text(song.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(song.artist, color = muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // Avoid repeating the same two demo recordings across multiple carousels.
+        if (listing.size > 4) {
+            item {
+                SectionHeading("Jump back in", "")
+                Spacer(Modifier.height(14.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(listing.take(10), key = { it.id }) { song ->
+                        Column(Modifier.width(142.dp).clickable { onPlay(song) }) {
+                            MusicCover(song, 142.dp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(song.title, color = ink, fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            Text(song.artist, color = muted, fontSize = 11.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
         }
-        item {
-            SectionHeading("Fresh music for you", "")
-            Spacer(Modifier.height(15.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(publicDomainDemos, key = { it.id }) { song ->
-                    Column(Modifier.width(164.dp).clickable { onPlay(song) }) {
-                        MusicCover(song, 164.dp)
-                        Spacer(Modifier.height(9.dp))
-                        Text(song.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("Free to stream · credited recording", color = muted, fontSize = 11.sp, maxLines = 2)
+        if (homeFilter != "Downloaded") {
+            item {
+                SectionHeading("Explore free recordings", "")
+                Spacer(Modifier.height(14.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(publicDomainDemos, key = { it.id }) { song ->
+                        Column(Modifier.width(148.dp).clickable { onPlay(song) }) {
+                            MusicCover(song, 148.dp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(song.title, color = ink, fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            Text(song.artist.substringBefore("·").trim(), color = muted,
+                                fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
         }
-        item {
-            SectionHeading("Your tracks", "")
-            Spacer(Modifier.height(10.dp))
-        }
-        items(listing, key = { it.id }) { song ->
-            SongRow(song, favorite = song.id in favorites, offline = offline[song.id] == true || song.isDeviceFile,
-                progress = progress[song.id], onPlay = { onPlay(song) },
-                onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
+        if (localTracks.isNotEmpty()) {
+            item {
+                SectionHeading("Your device music", "")
+                Spacer(Modifier.height(8.dp))
+            }
+            items(localTracks, key = { it.id }) { song ->
+                SongRow(song, favorite = song.id in favorites,
+                    offline = true, progress = null, onPlay = { onPlay(song) },
+                    onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
+            }
         }
         item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(surface)
