@@ -926,7 +926,7 @@ private fun LibraryScreen(
     }
     val activeLocal = localPlaylists.firstOrNull { it.id == selectedLocal }
     if (activeLocal != null) {
-        LocalPlaylistScreen(activeLocal, songs, onPlay, onRemoveFromPlaylist,
+        LocalPlaylistScreen(activeLocal, songs, onPlay, onDownload, onRemoveFromPlaylist,
             onBack = { selectedLocal = null }, modifier = modifier)
         return
     }
@@ -1121,7 +1121,7 @@ private fun LibraryScreen(
 @Composable
 private fun LocalPlaylistScreen(
     playlist: LocalPlaylist, songs: List<Song>,
-    onPlay: (Song, List<Song>) -> Unit,
+    onPlay: (Song, List<Song>) -> Unit, onDownload: (Song) -> Unit,
     onRemove: (String, String) -> Unit,
     onBack: () -> Unit, modifier: Modifier = Modifier
 ) {
@@ -1164,7 +1164,7 @@ private fun LocalPlaylistScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     SongRow(song, favorite = false, offline = song.isDeviceFile,
-                        progress = null, onPlay = { onPlay(song, queue) }, onDownload = {})
+                        progress = null, onPlay = { onPlay(song, queue) }, onDownload = { onDownload(song) })
                 }
                 IconButton(onClick = { onRemove(playlist.id, song.id) }) {
                     Icon(Icons.Default.RemoveCircleOutline, "Remove from playlist", tint = muted)
