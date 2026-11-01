@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,8 +27,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -43,12 +46,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val base = Color(0xFF090A0D)
-private val surface = Color(0xFF181A21)
-private val surfaceAlt = Color(0xFF22252E)
+private val base = Color(0xFF101010)
+private val surface = Color(0xFF232323)
+private val surfaceAlt = Color(0xFF303030)
 private val ink = Color(0xFFF7F8FA)
-private val muted = Color(0xFFA8AAB3)
-private val accent = Color(0xFFA9F568)
+private val muted = Color(0xFFB3B3B3)
+private val accent = Color(0xFF1ED760)
 private val colors = listOf(
     listOf(Color(0xFF5B3BBF), Color(0xFFCB6AA4), Color(0xFFEC9C73)),
     listOf(Color(0xFF1B507F), Color(0xFF4C84C6), Color(0xFF53C5B7)),
@@ -60,8 +63,8 @@ private val colors = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(9, 10, 13)
-        window.navigationBarColor = android.graphics.Color.rgb(9, 10, 13)
+        window.statusBarColor = android.graphics.Color.rgb(16, 16, 16)
+        window.navigationBarColor = android.graphics.Color.rgb(16, 16, 16)
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
@@ -188,6 +191,7 @@ private fun MusicApp() {
                     onFavorite = ::toggleFavorite,
                     onDownload = ::startDownload,
                     onImport = { filePicker.launch(arrayOf("audio/*")) },
+                    onGoLibrary = { page = Page.LIBRARY },
                     modifier = Modifier.padding(padding)
                 )
                 Page.SEARCH -> SearchScreen(
@@ -217,25 +221,56 @@ private fun MusicApp() {
 @Composable
 private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
     Column(
-        Modifier.width(110.dp).clickable(onClick = onClick).padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)
+        Modifier.width(105.dp).clickable(onClick = onClick).padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Icon(icon, title, tint = if (selected) ink else muted, modifier = Modifier.size(24.dp))
+        Icon(icon, title, tint = if (selected) ink else muted, modifier = Modifier.size(25.dp))
         Text(title, fontSize = 11.sp, color = if (selected) ink else muted,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
     }
 }
 
 @Composable
-private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radius: Dp = 14.dp) {
+private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radius: Dp = 5.dp) {
+    val palette = colors[song.gradient % colors.size]
     Box(
         modifier.size(size).clip(RoundedCornerShape(radius))
-            .background(Brush.linearGradient(colors[song.gradient % colors.size])),
+            .background(Brush.linearGradient(listOf(palette[0], palette[1], palette[2]))),
         contentAlignment = Alignment.Center
     ) {
-        Box(Modifier.size(size * .72f).clip(CircleShape).background(Color.White.copy(alpha = .10f)))
-        Icon(Icons.Default.GraphicEq, contentDescription = null,
-            tint = Color.White.copy(alpha = .85f), modifier = Modifier.size(size * .39f))
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                color = Color.White.copy(alpha = 0.11f),
+                radius = this.size.minDimension * .50f,
+                center = Offset(this.size.width * .83f, this.size.height * .88f)
+            )
+            drawCircle(
+                color = Color.Black.copy(alpha = 0.18f),
+                radius = this.size.minDimension * .38f,
+                center = Offset(this.size.width * .18f, this.size.height * .16f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.12f),
+                radius = this.size.minDimension * .17f,
+                center = Offset(this.size.width * .84f, this.size.height * .86f)
+            )
+        }
+        Column(Modifier.fillMaxSize().padding((size.value * .09f).dp),
+            verticalArrangement = Arrangement.SpaceBetween) {
+            Text(if (song.isDeviceFile) "YOUR MUSIC" else "PULSE ORIGINALS",
+                fontSize = (size.value * .07f).coerceIn(6f, 11f).sp,
+                fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .78f),
+                letterSpacing = .5.sp, maxLines = 1)
+            Column {
+                Text(song.title.uppercase(),
+                    fontSize = (size.value * .16f).coerceIn(11f, 29f).sp,
+                    fontWeight = FontWeight.Black, lineHeight = (size.value * .16f).coerceIn(11f, 30f).sp,
+                    color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(song.artist.substringBefore("·").trim(),
+                    fontSize = (size.value * .07f).coerceIn(7f, 11f).sp,
+                    color = Color.White.copy(alpha = .85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 
@@ -243,85 +278,136 @@ private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radi
 private fun HomeScreen(
     songs: List<Song>, favorites: Set<String>, offline: Map<String, Boolean>, progress: Map<String, Float>,
     onPlay: (Song) -> Unit, onFavorite: (Song) -> Unit, onDownload: (Song) -> Unit,
-    onImport: () -> Unit, modifier: Modifier = Modifier
+    onImport: () -> Unit, onGoLibrary: () -> Unit, modifier: Modifier = Modifier
 ) {
+    var homeFilter by remember { mutableStateOf("All") }
+    val listing = if (homeFilter == "Downloaded") songs.filter { it.isDeviceFile || offline[it.id] == true } else songs
     LazyColumn(
-        modifier.fillMaxSize().background(base),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 34.dp),
-        verticalArrangement = Arrangement.spacedBy(23.dp)
+        modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF242D24), base, base), endY = 850f)),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 34.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.size(42.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
-                    Text("P", fontWeight = FontWeight.Black, color = base, fontSize = 24.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Box(Modifier.size(39.dp).clip(CircleShape).background(Color(0xFF8E55BD)),
+                    contentAlignment = Alignment.Center) {
+                    Text("P", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("PULSE  /  PREVIEW", color = accent, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-                    Text("Made for your ears.", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-        }
-        item {
-            Box(
-                Modifier.fillMaxWidth().height(198.dp).clip(RoundedCornerShape(23.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF484B96), Color(0xFF2E395E), Color(0xFF1A222E))))
-                    .clickable { onPlay(publicDomainDemos[0]) }
-            ) {
-                Icon(Icons.Default.GraphicEq, null, Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).size(150.dp),
-                    tint = Color.White.copy(alpha = .16f))
-                Column(Modifier.align(Alignment.CenterStart).padding(23.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("A NEW WAY TO LISTEN", color = Color(0xFFE2D9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    Text("Your music.\nNo interruptions.", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 32.sp)
-                    Surface(shape = CircleShape, color = accent) {
-                        Row(Modifier.padding(horizontal = 15.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.PlayArrow, null, tint = base, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("PLAY SOMETHING", color = base, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
+                listOf("All", "Music", "Downloaded").forEach { value ->
+                    val chosen = homeFilter == value
+                    Box(Modifier.clip(CircleShape)
+                        .background(if (chosen) accent else Color(0xFF303730))
+                        .clickable { homeFilter = value }
+                        .padding(horizontal = 17.dp, vertical = 10.dp)) {
+                        Text(value, color = if (chosen) Color.Black else ink, fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
         item {
-            SectionHeading("Fresh finds", "Openly licensed recordings")
-            Spacer(Modifier.height(14.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(15.dp)) {
-                items(publicDomainDemos, key = { it.id }) { song ->
-                    Column(Modifier.width(166.dp).clickable { onPlay(song) }) {
-                        MusicCover(song, 166.dp, Modifier.fillMaxWidth(), 18.dp)
+            val first = songs.firstOrNull()
+            val second = songs.getOrNull(1) ?: first
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickTile("Liked Songs", null, Color(0xFF44318D), Modifier.weight(1f), onGoLibrary)
+                    if (first != null) QuickTile(first.title, first, surface, Modifier.weight(1f)) { onPlay(first) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickTile("Your downloads", null, Color(0xFF235E54), Modifier.weight(1f), onGoLibrary)
+                    if (second != null) QuickTile(second.title, second, surface, Modifier.weight(1f)) { onPlay(second) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickTile("Local files", null, Color(0xFF695147), Modifier.weight(1f), onImport)
+                    QuickTile("Your Library", null, Color(0xFF434B61), Modifier.weight(1f), onGoLibrary)
+                }
+            }
+        }
+        if (listing.isEmpty()) item {
+            Text("No downloads yet. Choose a track and tap Download to save it offline.", color = muted)
+        }
+        item {
+            SectionHeading("Jump back in", "")
+            Spacer(Modifier.height(16.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(listing.take(12), key = { it.id }) { song ->
+                    Column(Modifier.width(148.dp).clickable { onPlay(song) }) {
+                        MusicCover(song, 148.dp)
                         Spacer(Modifier.height(9.dp))
-                        Text(song.title, color = ink, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(song.artist, color = muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.artist, color = muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(surface).clickable(onClick = onImport).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.FolderOpen, null, tint = accent, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Bring your own music", fontWeight = FontWeight.Bold)
-                    Text("Import MP3, FLAC, OGG and more", color = muted, fontSize = 12.sp)
+            SectionHeading("Fresh music for you", "")
+            Spacer(Modifier.height(15.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(publicDomainDemos, key = { it.id }) { song ->
+                    Column(Modifier.width(164.dp).clickable { onPlay(song) }) {
+                        MusicCover(song, 164.dp)
+                        Spacer(Modifier.height(9.dp))
+                        Text(song.title, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Free to stream · credited recording", color = muted, fontSize = 11.sp, maxLines = 2)
+                    }
                 }
-                Icon(Icons.Default.ChevronRight, null, tint = muted)
             }
         }
-        item { SectionHeading("Made for you", "Tap a track to listen") }
-        items(songs, key = { it.id }) { song ->
+        item {
+            SectionHeading("Your tracks", "")
+            Spacer(Modifier.height(10.dp))
+        }
+        items(listing, key = { it.id }) { song ->
             SongRow(song, favorite = song.id in favorites, offline = offline[song.id] == true || song.isDeviceFile,
                 progress = progress[song.id], onPlay = { onPlay(song) },
                 onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
         }
+        item {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(surface)
+                .clickable(onClick = onImport).padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.FolderOpen, "Import from phone", tint = accent)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text("Add songs from your phone", color = ink, fontWeight = FontWeight.SemiBold)
+                    Text("MP3, FLAC, OGG and other supported files", color = muted, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickTile(
+    title: String, song: Song?, background: Color, modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    Row(modifier.height(58.dp).clip(RoundedCornerShape(5.dp))
+        .background(background).clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (song != null) MusicCover(song, 58.dp, radius = 0.dp)
+        else Box(Modifier.size(58.dp)
+            .background(Brush.linearGradient(listOf(background, Color(0xFF111111).copy(alpha = .35f)))),
+            contentAlignment = Alignment.Center) {
+            Icon(
+                if (title == "Liked Songs") Icons.Default.Favorite
+                else if (title == "Your downloads") Icons.Default.DownloadDone
+                else if (title == "Local files") Icons.Default.Folder
+                else Icons.Default.LibraryMusic,
+                contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+        Text(title, Modifier.padding(start = 9.dp, end = 5.dp).weight(1f), color = ink,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
+            fontWeight = FontWeight.Bold, lineHeight = 15.sp)
     }
 }
 
 @Composable
 private fun SectionHeading(title: String, subtitle: String) {
     Column {
-        Text(title, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = ink)
-        Text(subtitle, fontSize = 12.sp, color = muted)
+        Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ink)
+        if (subtitle.isNotBlank()) Text(subtitle, fontSize = 12.sp, color = muted)
     }
 }
 
@@ -331,7 +417,7 @@ private fun SongRow(
     onPlay: () -> Unit, onFavorite: (() -> Unit)? = null, onDownload: () -> Unit
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = 62.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.clickable(onClick = onPlay)) { MusicCover(song, 55.dp, radius = 9.dp) }
+        Box(Modifier.clickable(onClick = onPlay)) { MusicCover(song, 55.dp, radius = 3.dp) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).clickable(onClick = onPlay), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(song.title, color = ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
