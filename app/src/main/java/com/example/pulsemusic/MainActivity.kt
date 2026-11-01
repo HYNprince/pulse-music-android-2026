@@ -5,6 +5,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.media.MediaMetadataRetriever
 import android.graphics.BitmapFactory
+import android.content.Context
+import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -117,7 +120,8 @@ private fun MusicApp() {
     LaunchedEffect(engine) {
         while (isActive) {
             engine.updatePosition()
-            delay(500)
+            // Update the timeline once per second when playing; no rapid redraws when paused.
+            delay(if (engine.isPlaying) 1_000 else 2_500)
         }
     }
     LaunchedEffect(songs) { engine.setTracks(songs) }
@@ -235,20 +239,58 @@ private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.Ima
     }
 }
 
+/** Small, bounded cache so fast scrolling never decodes audio metadata on the UI thread. */
+private object AlbumArtwork {
+    private val memory = object : LruCache<String, ImageBitmap>(10 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int =
+            ((value.width.toLong() * value.height * 4L) / 1024L).coerceAtLeast(1).toInt()
+    }
+    private val withoutArtwork = mutableSetOf<String>()
+
+    fun cached(id: String): ImageBitmap? = memory.get(id)
+
+    suspend fun load(context: Context, song: Song): ImageBitmap? {
+        if (!song.isDeviceFile) return null
+        memory.get(song.id)?.let { return it }
+        if (synchronized(withoutArtwork) { song.id in withoutArtwork }) return null
+
+        // MediaMetadataRetriever and decoding can take hundreds of milliseconds on phones.
+        // Never perform either operation during composition or a scroll frame.
+        val image = withContext(Dispatchers.IO) {
+            runCatching {
+                val retriever = MediaMetadataRetriever()
+                val bytes = try {
+                    retriever.setDataSource(context, Uri.parse(song.streamUrl))
+                    retriever.embeddedPicture
+                } finally {
+                    retriever.release()
+                }
+                bytes?.let { data ->
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+                    var factor = 1
+                    while (bounds.outWidth / factor > 480 || bounds.outHeight / factor > 480) {
+                        factor *= 2
+                    }
+                    val options = BitmapFactory.Options().apply {
+                        inSampleSize = factor
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+                    }
+                    BitmapFactory.decodeByteArray(data, 0, data.size, options)?.asImageBitmap()
+                }
+            }.getOrNull()
+        }
+        if (image == null) synchronized(withoutArtwork) { withoutArtwork.add(song.id) }
+        else memory.put(song.id, image)
+        return image
+    }
+}
+
 @Composable
 private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radius: Dp = 5.dp) {
-    val context = LocalContext.current
-    val albumArt = remember(song.id) {
-        if (!song.isDeviceFile) null else runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(context, Uri.parse(song.streamUrl))
-                retriever.embeddedPicture?.let { bytes ->
-                    val options = BitmapFactory.Options().apply { inSampleSize = 4 }
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
-                }
-            } finally { retriever.release() }
-        }.getOrNull()
+    val context = LocalContext.current.applicationContext
+    val albumArt by produceState<ImageBitmap?>(initialValue = AlbumArtwork.cached(song.id), key1 = song.id) {
+        value = AlbumArtwork.load(context, song)
     }
     val palette = colors[song.gradient % colors.size]
     Box(
