@@ -1264,6 +1264,7 @@ private fun MiniPlayer(song: Song, engine: PlayerEngine, onExpand: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullPlayer(
     song: Song, engine: PlayerEngine, favorite: Boolean, offline: Boolean, progress: Float?,
