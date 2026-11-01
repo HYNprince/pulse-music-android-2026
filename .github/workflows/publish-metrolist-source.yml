@@ -1,0 +1,51 @@
+# Publishes authentic GPL-3.0 MetroList source to a SEPARATE branch.
+# Never modifies the Pulse 'main' branch or existing app.
+# Source: https://github.com/MetrolistGroup/Metrolist
+# GPL-3.0 notice and copyright acknowledgements are retained unchanged.
+name: Publish MetroList source branch
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/publish-metrolist-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout actual MetroList source at pinned commit
+        uses: actions/checkout@v4
+        with:
+          repository: MetrolistGroup/Metrolist
+          ref: 876e355181fd3b04e7063b10442fef1b721d53b3
+          path: upstream
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify unchanged GPL license and source identity
+        run: |
+          test -f upstream/LICENSE
+          grep -q "GNU GENERAL PUBLIC LICENSE" upstream/LICENSE
+          test -d upstream/app/src
+          test -d upstream/innertube
+          test "$(git -C upstream rev-parse HEAD)" = "876e355181fd3b04e7063b10442fef1b721d53b3"
+
+      - name: Publish exact source in metrolist-source branch only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          git -C upstream push \
+            "https://github.com/${{ github.repository }}.git" \
+            HEAD:refs/heads/metrolist-source
+
+      - name: Print separate source branch link
+        run: |
+          echo "MetroList GPL-3.0 source available at:"
+          echo "https://github.com/${{ github.repository }}/tree/metrolist-source"
+          echo "Unchanged Pulse source stays at main."
