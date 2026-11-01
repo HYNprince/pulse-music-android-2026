@@ -1,4 +1,4 @@
-name: Build Pulse Music Metro Engine APK
+name: Build Gmac Metro Music APK
 
 on:
   workflow_dispatch:
@@ -7,15 +7,15 @@ on:
       - ".github/workflows/build-pulse-metrolist.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-pulse:
-    name: Build branded Pulse Music Android test APK
+    name: Build original-brand Gmac Android test APK
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
-      - name: Checkout Pulse-branded MetroList GPL source
+      - name: Checkout Gmac GPL-compliant Android source
         uses: actions/checkout@v4
         with:
           repository: HYNprince/pulse-music-android-2026
@@ -29,9 +29,9 @@ jobs:
           test -f pulse/LICENSE
           grep -q "GNU GENERAL PUBLIC LICENSE" pulse/LICENSE
           test -f pulse/PULSE_FORK_README.md
-          grep -q 'Pulse Music' pulse/app/src/main/res/values/app_name.xml
-          grep -q 'com.pulsemusic.player' pulse/app/build.gradle.kts
-          grep -q '#1ED760' pulse/app/src/main/res/drawable/ic_launcher_foreground.xml
+          grep -q '>Gmac<' pulse/app/src/main/res/values/app_name.xml
+          grep -q 'com.gmac.player' pulse/app/build.gradle.kts
+          grep -q '#D9DFE8' pulse/app/src/main/res/drawable/ic_launcher_foreground.xml
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -59,11 +59,11 @@ jobs:
             -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Compile rebranded Pulse Music APK
+      - name: Compile rebranded Gmac APK
         working-directory: pulse
         env:
-          METROLIST_APP_NAME: Pulse Music
-          METROLIST_APPLICATION_ID: com.pulsemusic.player
+          METROLIST_APP_NAME: Gmac
+          METROLIST_APPLICATION_ID: com.gmac.player
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -Dkotlin.daemon.jvm.options=-Xmx2g"
         run: |
           chmod +x gradlew
@@ -72,10 +72,42 @@ jobs:
       - name: Upload branded APK with GPL source attribution
         uses: actions/upload-artifact@v4
         with:
-          name: Pulse-Music-Metro-Engine-debug-APK
+          name: Gmac-MetroList-debug-APK
           retention-days: 7
           if-no-files-found: error
           path: |
             pulse/app/build/outputs/apk/foss/debug/*.apk
             pulse/LICENSE
             pulse/PULSE_FORK_README.md
+
+      - name: Prepare direct-install Gmac APK and open-source credits
+        run: |
+          mkdir -p release
+          apk_path="$(find pulse/app/build/outputs/apk/foss/debug -type f -name '*.apk' -print -quit)"
+          test -n "$apk_path"
+          cp "$apk_path" release/Gmac-Music-Beta.apk
+          unzip -t release/Gmac-Music-Beta.apk >/dev/null
+          cp pulse/LICENSE release/GPL-3.0-LICENSE.txt
+          cp pulse/PULSE_FORK_README.md release/UPSTREAM-ATTRIBUTION.md
+          ls -lh release/
+
+      - name: Publish one-tap Gmac APK GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view gmac-metro-beta-2026-11-01 >/dev/null 2>&1; then
+            gh release upload gmac-metro-beta-2026-11-01 \
+              release/Gmac-Music-Beta.apk \
+              release/GPL-3.0-LICENSE.txt \
+              release/UPSTREAM-ATTRIBUTION.md --clobber
+          else
+            gh release create gmac-metro-beta-2026-11-01 \
+              release/Gmac-Music-Beta.apk \
+              release/GPL-3.0-LICENSE.txt \
+              release/UPSTREAM-ATTRIBUTION.md \
+              --target pulse-metrolist \
+              --title "Gmac — Android Beta (MetroList fork)" \
+              --prerelease \
+              --notes "Gmac: independently branded GPL-3.0 fork of MetroList. Full source: https://github.com/${{ github.repository }}/tree/pulse-metrolist. This is a debug-signed test APK, not production-ready. Source and original copyright notices remain available; streaming access is subject to service restrictions."
+          fi
