@@ -76,17 +76,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- Listen Together invite link -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="https" />
-                <data android:host="metrolist.cc" />
-                <data android:pathPrefix="/listen" />
-            </intent-filter>
+            <!-- MetroList-owned listen-link host is not claimed by this fork. -->
 
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
@@ -195,16 +185,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.AppCompat.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="metrolistdiscord" />
-                <data android:host="oauth2" />
-                <data android:pathPrefix="/callback" />
-            </intent-filter>
+            <!-- Upstream Discord OAuth URI is intentionally not claimed by Pulse. -->
         </activity>
 
         <provider
