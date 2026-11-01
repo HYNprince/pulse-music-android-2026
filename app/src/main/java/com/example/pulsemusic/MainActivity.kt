@@ -610,87 +610,145 @@ private fun SearchScreen(
     onPlay: (Song) -> Unit, onDownload: (Song) -> Unit, modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("All songs") }
-    val results = songs.filter { song ->
-        (query.isBlank() || song.title.contains(query, true) || song.artist.contains(query, true)) &&
-        (category == "All songs" ||
-         (category == "On your phone" && song.isDeviceFile) ||
-         (category == "Downloaded" && (song.isDeviceFile || offline[song.id] == true)) ||
-         (category == "Online music" && !song.isDeviceFile))
+    var category by remember { mutableStateOf("All") }
+    val results = remember(songs, query, category, offline.toMap()) {
+        songs.filter { song ->
+            val matchesQuery = query.isBlank() || song.title.contains(query.trim(), true) ||
+                song.artist.contains(query.trim(), true) || song.genre.contains(query.trim(), true)
+            val matchesCategory = when(category) {
+                "Electronic", "Classical", "Indie", "Ambient" -> song.genre == category
+                "Downloaded" -> song.isDeviceFile || offline[song.id] == true
+                "Local files" -> song.isDeviceFile
+                else -> true
+            }
+            matchesQuery && matchesCategory
+        }
     }
-    LazyColumn(modifier.fillMaxSize().background(base),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 38.dp),
-        verticalArrangement = Arrangement.spacedBy(17.dp)) {
-        item { Text("Search", fontSize = 29.sp, color = ink, fontWeight = FontWeight.Bold) }
+    LazyColumn(
+        modifier.fillMaxSize().background(Brush.verticalGradient(
+            listOf(Color(0xFF191D25), base, base), endY = 680f
+        )),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 19.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { Text("Search", fontSize = 31.sp, color = ink, fontWeight = FontWeight.ExtraBold) }
         item {
             OutlinedTextField(
-                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().height(56.dp),
-                placeholder = { Text("What do you want to listen to?", color = Color(0xFF5A5A5A), fontSize = 14.sp) },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, "Search", tint = Color.Black) },
-                shape = RoundedCornerShape(5.dp),
+                value = query, onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().height(55.dp),
+                placeholder = {
+                    Text("What do you want to listen to?", color = Color(0xFF696969), fontSize = 14.sp)
+                }, singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, "Search", tint = Color(0xFF202020)) },
+                trailingIcon = {
+                    if (query.isNotBlank()) IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Default.Close, "Clear search", tint = Color(0xFF333333))
+                    }
+                },
+                shape = RoundedCornerShape(7.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
-                    focusedTextColor = Color.Black, unfocusedTextColor = Color.Black,
-                    focusedBorderColor = Color.White, unfocusedBorderColor = Color.White,
+                    focusedContainerColor = Color(0xFFF8F8F8),
+                    unfocusedContainerColor = Color(0xFFF8F8F8),
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
                     cursorColor = Color.Black
                 )
             )
         }
-        if (query.isBlank()) {
-            item { Text("Browse all", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ink) }
+        if (query.isBlank() && category == "All") {
+            item { SectionHeading("Browse all", "Pick the sound you're in the mood for") }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CategoryTile("All songs", Color(0xFFB32661), Modifier.weight(1f)) { category = "All songs"; query = " " }
-                        CategoryTile("Online music", Color(0xFF1F648B), Modifier.weight(1f)) { category = "Online music"; query = " " }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CategoryTile("Electronic", Color(0xFFBC4265), Modifier.weight(1f)) {
+                            category = "Electronic"
+                        }
+                        CategoryTile("Indie", Color(0xFF276F6B), Modifier.weight(1f)) {
+                            category = "Indie"
+                        }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CategoryTile("Downloaded", Color(0xFF6C4089), Modifier.weight(1f)) { category = "Downloaded"; query = " " }
-                        CategoryTile("On your phone", Color(0xFFAB5622), Modifier.weight(1f)) { category = "On your phone"; query = " " }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CategoryTile("Classical", Color(0xFF5943A1), Modifier.weight(1f)) {
+                            category = "Classical"
+                        }
+                        CategoryTile("Ambient", Color(0xFFB1602B), Modifier.weight(1f)) {
+                            category = "Ambient"
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CategoryTile("Downloaded", Color(0xFF355B86), Modifier.weight(1f)) {
+                            category = "Downloaded"
+                        }
+                        CategoryTile("Local files", Color(0xFF546C44), Modifier.weight(1f)) {
+                            category = "Local files"
+                        }
+                    }
+                }
+            }
+        } else {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (category == "All") "Search results" else category,
+                        fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ink,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = { category = "All"; query = "" }) {
+                        Text("Browse all", color = accent, fontSize = 12.sp)
                     }
                 }
             }
         }
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (query.isBlank()) "Start listening" else category, color = ink,
-                    fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                if (query.isNotBlank()) {
-                    TextButton(onClick = { query = ""; category = "All songs" }) {
-                        Text("Browse", color = accent, fontSize = 13.sp)
-                    }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (query.isBlank() && category == "All") "Popular in Pulse" else "Tracks",
+                    fontSize = 19.sp, fontWeight = FontWeight.Bold, color = ink,
+                    modifier = Modifier.weight(1f))
+                Text("${results.size} available", fontSize = 12.sp, color = muted)
+            }
+        }
+        if (results.isEmpty()) {
+            item {
+                Column(Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Default.SearchOff, null, tint = muted, modifier = Modifier.size(38.dp))
+                    Text("No songs found", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ink)
+                    Text("Try a different title, artist or genre. Only authorized recordings can play here.",
+                        fontSize = 12.sp, color = muted, textAlign = TextAlign.Center)
                 }
             }
         }
-        if (results.isEmpty()) item {
-            Text("No matching music in your library yet. Import local audio or try a demo track.",
-                color = muted, fontSize = 13.sp)
-        }
         items(results, key = { it.id }) { song ->
             SongRow(song, favorite = false, offline = offline[song.id] == true || song.isDeviceFile,
-                progress = progress[song.id], onPlay = { onPlay(song) }, onDownload = { onDownload(song) })
+                progress = progress[song.id],
+                onPlay = { onPlay(song) }, onDownload = { onDownload(song) })
         }
     }
 }
 
 @Composable
 private fun CategoryTile(title: String, tint: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(modifier.height(104.dp).clip(RoundedCornerShape(5.dp))
-        .background(tint).clickable(onClick = onClick)) {
+    Box(modifier.height(105.dp).clip(RoundedCornerShape(8.dp))
+        .background(Brush.linearGradient(listOf(tint, tint.copy(alpha = .78f))))
+        .clickable(onClick = onClick)) {
         Text(title, modifier = Modifier.align(Alignment.TopStart).padding(13.dp),
-            color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
-            maxLines = 2, lineHeight = 20.sp)
-        Box(Modifier.size(72.dp).align(Alignment.BottomEnd)
-            .offset(x = 17.dp, y = 13.dp).rotate(24f)
-            .background(Color.Black.copy(alpha = .22f), RoundedCornerShape(5.dp)),
+            color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+            maxLines = 2, lineHeight = 21.sp)
+        Box(Modifier.size(78.dp).align(Alignment.BottomEnd)
+            .offset(x = 17.dp, y = 18.dp).rotate(19f)
+            .background(Color.Black.copy(alpha = .24f), RoundedCornerShape(7.dp)),
             contentAlignment = Alignment.Center) {
-            Icon(when(title) {
+            val graphic = when(title) {
                 "Downloaded" -> Icons.Default.DownloadDone
-                "On your phone" -> Icons.Default.PhoneAndroid
-                "Online music" -> Icons.Default.Public
+                "Local files" -> Icons.Default.Folder
+                "Electronic" -> Icons.Default.GraphicEq
+                "Classical" -> Icons.Default.Piano
+                "Ambient" -> Icons.Default.NightsStay
                 else -> Icons.Default.Album
-            }, null, tint = Color.White.copy(alpha = .92f), modifier = Modifier.size(34.dp))
+            }
+            Icon(graphic, null, tint = Color.White.copy(alpha = .88f),
+                modifier = Modifier.size(35.dp))
         }
     }
 }
