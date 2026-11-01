@@ -453,33 +453,87 @@ private fun SearchScreen(
     onPlay: (Song) -> Unit, onDownload: (Song) -> Unit, modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
-    val results = songs.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) }
-    LazyColumn(modifier.fillMaxSize().background(base), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
-        item { Text("Search", fontSize = 34.sp, color = ink, fontWeight = FontWeight.Black) }
+    var category by remember { mutableStateOf("All songs") }
+    val results = songs.filter { song ->
+        (query.isBlank() || song.title.contains(query, true) || song.artist.contains(query, true)) &&
+        (category == "All songs" ||
+         (category == "On your phone" && song.isDeviceFile) ||
+         (category == "Downloaded" && (song.isDeviceFile || offline[song.id] == true)) ||
+         (category == "Online music" && !song.isDeviceFile))
+    }
+    LazyColumn(modifier.fillMaxSize().background(base),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 38.dp),
+        verticalArrangement = Arrangement.spacedBy(17.dp)) {
+        item { Text("Search", fontSize = 29.sp, color = ink, fontWeight = FontWeight.Bold) }
         item {
             OutlinedTextField(
-                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Songs and artists", color = muted) }, singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = accent) },
-                shape = RoundedCornerShape(15.dp),
+                value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().height(56.dp),
+                placeholder = { Text("What do you want to listen to?", color = Color(0xFF5A5A5A), fontSize = 14.sp) },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, "Search", tint = Color.Black) },
+                shape = RoundedCornerShape(5.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = surface, unfocusedContainerColor = surface,
-                    focusedTextColor = ink, unfocusedTextColor = ink,
-                    focusedBorderColor = accent, unfocusedBorderColor = Color.Transparent
+                    focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                    focusedTextColor = Color.Black, unfocusedTextColor = Color.Black,
+                    focusedBorderColor = Color.White, unfocusedBorderColor = Color.White,
+                    cursorColor = Color.Black
                 )
             )
         }
+        if (query.isBlank()) {
+            item { Text("Browse all", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ink) }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CategoryTile("All songs", Color(0xFFB32661), Modifier.weight(1f)) { category = "All songs"; query = " " }
+                        CategoryTile("Online music", Color(0xFF1F648B), Modifier.weight(1f)) { category = "Online music"; query = " " }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CategoryTile("Downloaded", Color(0xFF6C4089), Modifier.weight(1f)) { category = "Downloaded"; query = " " }
+                        CategoryTile("On your phone", Color(0xFFAB5622), Modifier.weight(1f)) { category = "On your phone"; query = " " }
+                    }
+                }
+            }
+        }
         item {
-            Text("Starter catalog + imported device tracks", fontSize = 12.sp, color = muted)
-            Spacer(Modifier.height(10.dp))
-            Text(if (query.isBlank()) "Explore music" else "${results.size} result(s)", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (query.isBlank()) "Start listening" else category, color = ink,
+                    fontSize = 21.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                if (query.isNotBlank()) {
+                    TextButton(onClick = { query = ""; category = "All songs" }) {
+                        Text("Browse", color = accent, fontSize = 13.sp)
+                    }
+                }
+            }
         }
         if (results.isEmpty()) item {
-            Text("No match yet. The initial online catalog contains two public-domain recordings; more licensed sources come later.", color = muted)
+            Text("No matching music in your library yet. Import local audio or try a demo track.",
+                color = muted, fontSize = 13.sp)
         }
         items(results, key = { it.id }) { song ->
             SongRow(song, favorite = false, offline = offline[song.id] == true || song.isDeviceFile,
                 progress = progress[song.id], onPlay = { onPlay(song) }, onDownload = { onDownload(song) })
+        }
+    }
+}
+
+@Composable
+private fun CategoryTile(title: String, tint: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(modifier.height(104.dp).clip(RoundedCornerShape(5.dp))
+        .background(tint).clickable(onClick = onClick)) {
+        Text(title, modifier = Modifier.align(Alignment.TopStart).padding(13.dp),
+            color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
+            maxLines = 2, lineHeight = 20.sp)
+        Box(Modifier.size(72.dp).align(Alignment.BottomEnd)
+            .offset(x = 17.dp, y = 13.dp).rotate(24f)
+            .background(Color.Black.copy(alpha = .22f), RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center) {
+            Icon(when(title) {
+                "Downloaded" -> Icons.Default.DownloadDone
+                "On your phone" -> Icons.Default.PhoneAndroid
+                "Online music" -> Icons.Default.Public
+                else -> Icons.Default.Album
+            }, null, tint = Color.White.copy(alpha = .92f), modifier = Modifier.size(34.dp))
         }
     }
 }
@@ -491,48 +545,113 @@ private fun LibraryScreen(
     onDownload: (Song) -> Unit, onImport: () -> Unit, modifier: Modifier = Modifier
 ) {
     var filter by remember { mutableStateOf(LibraryFilter.ALL) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var libraryQuery by remember { mutableStateOf("") }
     val visible = songs.filter {
-        when (filter) {
+        (when (filter) {
             LibraryFilter.ALL -> true
             LibraryFilter.DOWNLOADED -> it.isDeviceFile || downloaded[it.id] == true
             LibraryFilter.FAVORITES -> it.id in favorites
-        }
+        }) && (libraryQuery.isBlank() || it.title.contains(libraryQuery, true) || it.artist.contains(libraryQuery, true))
     }
-    LazyColumn(modifier.fillMaxSize().background(base), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+    LazyColumn(modifier.fillMaxSize().background(base), contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Your Library", fontSize = 31.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-                IconButton(onClick = onImport) { Icon(Icons.Default.AddCircle, "Import local audio", tint = accent) }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf(
-                    LibraryFilter.ALL to "All", LibraryFilter.DOWNLOADED to "Downloaded", LibraryFilter.FAVORITES to "Liked"
-                ).forEach { (item, label) ->
-                    FilterChip(selected = filter == item, onClick = { filter = item }, label = { Text(label, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent, selectedLabelColor = base))
+                Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF8254A6)),
+                    contentAlignment = Alignment.Center) {
+                    Text("P", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
                 }
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).clickable(onClick = onImport).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.FolderOpen, null, tint = accent)
                 Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("Import music from device", fontWeight = FontWeight.Bold)
-                    Text("Your audio files stay on your device", fontSize = 12.sp, color = muted)
+                Text("Your Library", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) libraryQuery = "" }) {
+                    Icon(Icons.Default.Search, "Search library", tint = ink)
+                }
+                IconButton(onClick = onImport) { Icon(Icons.Default.Add, "Import music", tint = ink) }
+            }
+        }
+        if (searchOpen) item {
+            OutlinedTextField(value = libraryQuery, onValueChange = { libraryQuery = it },
+                modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search your library") },
+                singleLine = true, shape = RoundedCornerShape(7.dp))
+        }
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(listOf(LibraryFilter.ALL to "All", LibraryFilter.DOWNLOADED to "Downloaded",
+                    LibraryFilter.FAVORITES to "Playlists & Liked")) { (value, label) ->
+                    val selected = filter == value
+                    Box(Modifier.clip(CircleShape)
+                        .background(if (selected) Color(0xFF225D35) else surfaceAlt)
+                        .clickable { filter = value }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(label, fontSize = 13.sp, color = if (selected) accent else ink)
+                    }
                 }
             }
         }
-        item { Text("${visible.size} tracks", fontSize = 13.sp, color = muted) }
+        if (filter == LibraryFilter.ALL && libraryQuery.isBlank()) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Recents", fontSize = 14.sp, color = muted, modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.GridView, "Library grid view", tint = muted, modifier = Modifier.size(20.dp))
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth().clickable { filter = LibraryFilter.FAVORITES },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(64.dp).background(
+                        Brush.linearGradient(listOf(Color(0xFF4F3AAA), Color(0xFF9CA8E4)))),
+                        contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Favorite, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Liked Songs", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ink)
+                        Text("Pinned · ${favorites.size} liked tracks", fontSize = 12.sp, color = muted)
+                    }
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth().clickable { filter = LibraryFilter.DOWNLOADED },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(64.dp).background(Color(0xFF28554C)),
+                        contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.DownloadDone, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("Your downloads", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ink)
+                        Text("Offline music", fontSize = 12.sp, color = muted)
+                    }
+                }
+            }
+        }
+        item {
+            Text(when(filter) {
+                LibraryFilter.ALL -> "All tracks"
+                LibraryFilter.DOWNLOADED -> "Downloaded tracks"
+                LibraryFilter.FAVORITES -> "Liked tracks"
+            }, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ink)
+        }
         if (visible.isEmpty()) item {
-            Text("Nothing here yet. Add some music, download a demo song or mark favorites.", color = muted)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("No tracks here yet", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Add songs, like a track or download an available recording.", color = muted, fontSize = 13.sp)
+            }
         }
         items(visible, key = { it.id }) { song ->
             SongRow(song, favorite = song.id in favorites, offline = downloaded[song.id] == true || song.isDeviceFile,
                 progress = progress[song.id], onPlay = { onPlay(song, visible) },
                 onFavorite = { onFavorite(song) }, onDownload = { onDownload(song) })
+        }
+        item {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                .clickable(onClick = onImport).padding(vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AddCircleOutline, "Add local files", tint = ink)
+                Spacer(Modifier.width(12.dp))
+                Text("Import audio files from device", color = ink, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
