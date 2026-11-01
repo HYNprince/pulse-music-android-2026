@@ -549,7 +549,7 @@ private fun QuickTile(
             contentAlignment = Alignment.Center) {
             Icon(
                 if (title == "Liked Songs") Icons.Default.Favorite
-                else if (title == "Your downloads") Icons.Default.DownloadDone
+                else if (title == "Your downloads" || title == "Downloads") Icons.Default.DownloadDone
                 else if (title == "Local files") Icons.Default.Folder
                 else Icons.Default.LibraryMusic,
                 contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
@@ -584,7 +584,9 @@ private fun SongRow(
                     Icon(Icons.Default.DownloadDone, null, tint = accent, modifier = Modifier.size(13.dp))
                     Spacer(Modifier.width(3.dp))
                 }
-                Text(if (song.isDeviceFile) song.artist else "${song.artist} · ${song.genre}", color = muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (song.isDeviceFile) song.artist else "${song.artist} · ${song.genre}" +
+                    if (song.durationSeconds > 0) " · ${song.durationSeconds / 60}:${(song.durationSeconds % 60).toString().padStart(2, '0')}" else "",
+                    color = muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = accent) }
         }
