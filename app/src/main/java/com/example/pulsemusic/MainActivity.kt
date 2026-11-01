@@ -580,7 +580,8 @@ private fun SectionHeading(title: String, subtitle: String) {
 @Composable
 private fun SongRow(
     song: Song, favorite: Boolean, offline: Boolean, progress: Float?,
-    onPlay: () -> Unit, onFavorite: (() -> Unit)? = null, onDownload: () -> Unit
+    onPlay: () -> Unit, onFavorite: (() -> Unit)? = null, onDownload: () -> Unit,
+    onArtist: (() -> Unit)? = null
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = 62.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.clickable(onClick = onPlay)) { MusicCover(song, 55.dp, radius = 3.dp) }
@@ -595,6 +596,7 @@ private fun SongRow(
                 }
                 Text(if (song.isDeviceFile) song.artist else "${song.artist} · ${song.genre}" +
                     if (song.durationSeconds > 0) " · ${song.durationSeconds / 60}:${(song.durationSeconds % 60).toString().padStart(2, '0')}" else "",
+                    modifier = Modifier.clickable(enabled = onArtist != null) { onArtist?.invoke() },
                     color = muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             progress?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = accent) }
@@ -649,6 +651,16 @@ private fun SearchScreen(
         }
     }
     var category by remember { mutableStateOf("All") }
+    var artistProfile by remember { mutableStateOf<String?>(null) }
+    val activeArtist = artistProfile
+    if (activeArtist != null) {
+        ArtistCatalogScreen(
+            artist = activeArtist, songs = songs, offline = offline, progress = progress,
+            onPlay = onPlay, onDownload = onDownload,
+            onBack = { artistProfile = null }, modifier = modifier
+        )
+        return
+    }
     val results = remember(songs, query, category, offline.toMap()) {
         songs.filter { song ->
             val matchesQuery = query.isBlank() || song.title.contains(query.trim(), true) ||
@@ -773,7 +785,62 @@ private fun SearchScreen(
         items(results, key = { it.id }) { song ->
             SongRow(song, favorite = false, offline = offline[song.id] == true || song.isDeviceFile,
                 progress = progress[song.id],
-                onPlay = { onPlay(song) }, onDownload = { onDownload(song) })
+                onPlay = { onPlay(song) }, onDownload = { onDownload(song) },
+                onArtist = { artistProfile = song.artist })
+        }
+    }
+}
+
+@Composable
+private fun ArtistCatalogScreen(
+    artist: String, songs: List<Song>, offline: Map<String, Boolean>, progress: Map<String, Float>,
+    onPlay: (Song) -> Unit, onDownload: (Song) -> Unit,
+    onBack: () -> Unit, modifier: Modifier = Modifier
+) {
+    val catalog = remember(artist, songs) { songs.filter { it.artist == artist } }
+    LazyColumn(modifier.fillMaxSize().background(
+        Brush.verticalGradient(listOf(Color(0xFF29473F), base, base), endY = 850f)),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, "Back to search", tint = ink)
+            }
+        }
+        item {
+            Box(Modifier.size(176.dp).clip(CircleShape).background(
+                Brush.linearGradient(listOf(Color(0xFF3B8974), Color(0xFF36436A)))),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(78.dp))
+            }
+        }
+        item {
+            Text(artist, fontSize = 30.sp, fontWeight = FontWeight.Black, color = ink,
+                maxLines = 3, lineHeight = 34.sp)
+            Spacer(Modifier.height(6.dp))
+            Text("Artist / contributor · ${catalog.size} available recording(s)",
+                color = muted, fontSize = 13.sp)
+        }
+        if (catalog.isNotEmpty()) {
+            item {
+                Button(onClick = { onPlay(catalog.first()) },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent,
+                        contentColor = Color.Black)) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Text("Play", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        item { Text("Available tracks", fontSize = 22.sp, color = ink, fontWeight = FontWeight.Bold) }
+        items(catalog, key = { it.id }) { song ->
+            SongRow(song, favorite = false, offline = song.isDeviceFile || offline[song.id] == true,
+                progress = progress[song.id], onPlay = { onPlay(song) },
+                onDownload = { onDownload(song) })
+        }
+        item {
+            Text("Song rights and credits belong to the original creators. Open each song's source page from Now Playing.",
+                color = muted, fontSize = 12.sp)
         }
     }
 }
