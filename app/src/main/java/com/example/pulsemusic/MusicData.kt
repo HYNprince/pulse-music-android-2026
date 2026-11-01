@@ -167,54 +167,85 @@ class MusicRepository(private val context: Context) {
 
     fun playableUri(song: Song): Uri = offlinePath(song)?.let(Uri::fromFile) ?: Uri.parse(song.streamUrl)
 
-    /** Foreground-in-app starter downloader, not yet an Android background download service. */
-    suspend fun downloadSong(song: Song, report: suspend (Float) -> Unit): File = withContext(Dispatchers.IO) {
-        require(!song.isDeviceFile && song.sourcePage.isNotBlank()) { "This track cannot be downloaded" }
-        offlinePath(song)?.let { return@withContext it }
-        val destination = File(offlineDir, "${song.id}.ogg")
-        val temp = File(offlineDir, "${song.id}.part")
-        var connection: HttpURLConnection? = null
-        try {
-            connection = (URL(song.streamUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20_000
-                readTimeout = 25_000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "PulseMusicPrototype/0.1 (educational Android music player)")
-                connect()
+    /** In-app resumable downloader for the curated Ogg recordings only.
+     * If interrupted, the .part file remains private and playback never sees it.
+     * A later retry issues a Range request; sources that ignore Range restart safely.
+     * A true long-running background download service is a separate future upgrade.
+     */
+    suspend fun downloadSong(song: Song, report: suspend (Float) -> Unit): File =
+        withContext(Dispatchers.IO) {
+            require(!song.isDeviceFile && song.sourcePage.startsWith("https://commons.wikimedia.org/")) {
+                "Only verified Commons recordings are downloadable in this prototype"
             }
-            if (connection.responseCode !in 200..299) error("Audio host returned HTTP ${connection.responseCode}")
-            val length = connection.contentLengthLong
-            var written = 0L
-            var reported = -1
-            connection.inputStream.use { input ->
-                FileOutputStream(temp).use { output ->
-                    val buffer = ByteArray(32 * 1024)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        written += read
-                        if (written > 80_000_000L) error("Demo download exceeds 80 MB limit")
-                        output.write(buffer, 0, read)
-                        if (length > 0) {
-                            val percent = ((written * 100) / length).toInt().coerceIn(0, 100)
-                            if (percent >= reported + 5) {
-                                reported = percent
-                                report(percent / 100f)
+            offlinePath(song)?.let { return@withContext it }
+            val destination = File(offlineDir, "${song.id}.ogg")
+            val partial = File(offlineDir, "${song.id}.part")
+            val maxBytes = 80_000_000L
+
+            if (partial.length() >= maxBytes) partial.delete()
+            val already = partial.length()
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL(song.streamUrl)
+                require(url.protocol == "https" && url.host == "commons.wikimedia.org") {
+                    "Unsupported music host"
+                }
+                connection = (url.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 20_000
+                    readTimeout = 30_000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent",
+                        "PulseMusic/0.3 (+https://github.com/HYNprince/pulse-music-android-2026)")
+                    if (already > 0L) setRequestProperty("Range", "bytes=${already}-")
+                    connect()
+                }
+                val status = connection.responseCode
+                if (status !in 200..299) error("Audio source returned HTTP $status")
+
+                // Do not append an entire response if the host ignores Range.
+                val append = already > 0L && status == HttpURLConnection.HTTP_PARTIAL
+                val start = if (append) already else 0L
+                val bodyLength = connection.contentLengthLong
+                val expected = if (bodyLength > 0L) start + bodyLength else -1L
+                if (expected > maxBytes) error("Recording exceeds 80 MB download limit")
+                var total = start
+                var reported = -1
+
+                connection.inputStream.use { input ->
+                    FileOutputStream(partial, append).use { output ->
+                        val buffer = ByteArray(32 * 1024)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            total += read
+                            if (total > maxBytes) error("Recording exceeds 80 MB download limit")
+                            output.write(buffer, 0, read)
+                            if (expected > 0L) {
+                                val percent = ((total * 100) / expected).toInt().coerceIn(0, 100)
+                                if (percent - reported >= 5) {
+                                    reported = percent
+                                    report(percent / 100f)
+                                }
                             }
                         }
+                        output.fd.sync()
                     }
-                    output.fd.sync()
                 }
+                if (total < 4 || (expected > 0 && total != expected)) {
+                    error("Interrupted download. Tap Download again to resume")
+                }
+                // Prevent HTML error responses from appearing as downloaded audio.
+                val signature = partial.inputStream().use { it.readNBytes(4) }
+                if (!signature.contentEquals(byteArrayOf(79, 103, 103, 83))) {
+                    partial.delete()
+                    error("The music host did not return a valid Ogg audio file")
+                }
+                if (!partial.renameTo(destination)) error("Could not save recording")
+                report(1f)
+                destination
+            } finally {
+                connection?.disconnect()
             }
-            if (written == 0L || (length > 0L && written != length)) error("Download incomplete")
-            if (!temp.renameTo(destination)) error("Could not save offline file")
-            report(1f)
-            destination
-        } catch (t: Throwable) {
-            temp.delete()
-            throw t
-        } finally {
-            connection?.disconnect()
         }
-    }
+
 }
