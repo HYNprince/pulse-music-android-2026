@@ -1,0 +1,104 @@
+name: Build optimized Gmac performance beta
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-gmac-perf-beta.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-optimized:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout Gmac MetroList fork
+        uses: actions/checkout@v4
+        with:
+          repository: HYNprince/pulse-music-android-2026
+          ref: pulse-metrolist
+          submodules: recursive
+          path: gmac
+          persist-credentials: false
+
+      - name: Verify license, optimized build and app branding
+        run: |
+          test -f gmac/LICENSE
+          grep -q 'GNU GENERAL PUBLIC LICENSE' gmac/LICENSE
+          grep -q 'create("beta")' gmac/app/build.gradle.kts
+          grep -q 'com.gmac.player' gmac/app/build.gradle.kts
+          grep -q '>Gmac<' gmac/app/src/main/res/values/app_name.xml
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android platform for upstream build
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "platform-tools"
+          if [ ! -e "$ANDROID_HOME/platforms/android-37" ] && [ -d "$ANDROID_HOME/platforms/android-37.0" ]; then
+            ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
+          fi
+
+      - name: Create test-only signing keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Compile R8-optimized non-debug Gmac beta
+        working-directory: gmac
+        env:
+          METROLIST_APP_NAME: Gmac
+          METROLIST_APPLICATION_ID: com.gmac.player
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dkotlin.daemon.jvm.options=-Xmx2g"
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleFossBeta --no-daemon --console=plain --warning-mode summary
+
+      - name: Package Gmac installable APK and GPL credits
+        run: |
+          mkdir -p release
+          find gmac/app/build/outputs/apk -name '*.apk' -type f -print
+          apk_path="$(find gmac/app/build/outputs/apk/foss/beta -name '*.apk' -type f -print -quit)"
+          test -n "$apk_path"
+          cp "$apk_path" release/Gmac-Performance-Beta.apk
+          unzip -t release/Gmac-Performance-Beta.apk >/dev/null
+          cp gmac/LICENSE release/GPL-3.0-LICENSE.txt
+          cp gmac/PULSE_FORK_README.md release/UPSTREAM-ATTRIBUTION.md
+          ls -lh release/
+
+      - name: Upload reproducible build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gmac-Performance-Beta-APK
+          retention-days: 7
+          if-no-files-found: error
+          path: release/*
+
+      - name: Publish direct APK GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view gmac-performance-beta-2026-11-01 >/dev/null 2>&1; then
+            gh release upload gmac-performance-beta-2026-11-01 release/* --clobber
+          else
+            gh release create gmac-performance-beta-2026-11-01 release/* \
+              --target pulse-metrolist \
+              --title "Gmac Performance Beta — Optimized Android Test" \
+              --prerelease \
+              --notes "R8-optimized, non-debug MetroList-derived Gmac test build. Installs as com.gmac.player.beta to protect existing Gmac app data. GPL-3.0 and upstream copyright attribution are retained. The uploaded bat-logo silhouette is user-supplied artwork and may require trademark permission before public distribution. Downloaded media rights and service terms remain separate."
+          fi
