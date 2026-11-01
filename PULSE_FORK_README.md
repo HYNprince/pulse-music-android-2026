@@ -1,11 +1,11 @@
-# Pulse Music — MetroList-based Android fork
+# Gmac — MetroList-based Android fork
 
-**Pulse Music** is a rebranded, independently maintained fork of the open-source [MetroList](https://github.com/MetrolistGroup/Metrolist) Android music player.
+**Gmac** is a rebranded, independently maintained fork of the open-source [MetroList](https://github.com/MetrolistGroup/Metrolist) Android music player.
 
 ## What was changed
 
-- Pulse Music app name and an original green Pulse launcher/app logo
-- Independent Android application ID: `com.pulsemusic.player`
+- Gmac app name and an original green original silver waveform launcher/app logo
+- Independent Android application ID: `com.gmac.player`
 - Updated visible application labels and selected user-facing strings
 - Disabled the upstream updater so this fork will not fetch MetroList releases
 - Removed the MetroList-owned `metrolist.cc` verified app-link handler and its Discord OAuth callback
