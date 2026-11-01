@@ -298,8 +298,9 @@ private fun MusicCover(song: Song, size: Dp, modifier: Modifier = Modifier, radi
             .background(Brush.linearGradient(listOf(palette[0], palette[1], palette[2]))),
         contentAlignment = Alignment.Center
     ) {
-        if (albumArt != null) {
-            Image(bitmap = albumArt, contentDescription = "Artwork for ${song.title}",
+        val picture = albumArt
+        if (picture != null) {
+            Image(bitmap = picture, contentDescription = "Artwork for ${song.title}",
                 modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
             Canvas(Modifier.fillMaxSize()) {
