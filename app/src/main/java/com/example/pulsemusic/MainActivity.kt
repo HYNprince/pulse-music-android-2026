@@ -658,23 +658,32 @@ private fun LibraryScreen(
 
 @Composable
 private fun MiniPlayer(song: Song, engine: PlayerEngine, onExpand: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 9.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFF303749))) {
-        Row(Modifier.fillMaxWidth().height(63.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.padding(start = 6.dp).clickable(onClick = onExpand)) { MusicCover(song, 50.dp, radius = 8.dp) }
-            Spacer(Modifier.width(9.dp))
+    val tint = colors[song.gradient % colors.size][0]
+    Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 2.dp)
+        .clip(RoundedCornerShape(9.dp)).background(
+            Brush.horizontalGradient(listOf(tint.copy(alpha = .78f), Color(0xFF34383A))))) {
+        Row(Modifier.fillMaxWidth().height(57.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.padding(start = 5.dp).clickable(onClick = onExpand)) {
+                MusicCover(song, 48.dp, radius = 4.dp)
+            }
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f).clickable(onClick = onExpand)) {
-                Text(song.title, color = ink, maxLines = 1, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(song.artist, color = Color(0xFFD1D6E2), maxLines = 1, fontSize = 11.sp, overflow = TextOverflow.Ellipsis)
+                Text(song.title, color = ink, maxLines = 1, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, overflow = TextOverflow.Ellipsis)
+                Text(song.artist, color = Color.White.copy(alpha = .78f),
+                    maxLines = 1, fontSize = 11.sp, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = engine::toggle) {
+            IconButton(onClick = engine::toggle, modifier = Modifier.size(43.dp)) {
                 Icon(if (engine.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    if (engine.isPlaying) "Pause" else "Play", tint = ink, modifier = Modifier.size(31.dp))
+                    if (engine.isPlaying) "Pause" else "Play", tint = ink, modifier = Modifier.size(28.dp))
             }
-            IconButton(onClick = engine::next) { Icon(Icons.Default.SkipNext, "Next", tint = ink) }
+            IconButton(onClick = engine::next, modifier = Modifier.size(42.dp)) {
+                Icon(Icons.Default.SkipNext, "Next song", tint = ink, modifier = Modifier.size(27.dp))
+            }
         }
         val fraction = if (engine.duration > 0) (engine.position.toFloat() / engine.duration).coerceIn(0f, 1f) else 0f
-        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().height(2.dp), color = accent,
-            trackColor = Color.White.copy(alpha = .18f))
+        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp).height(2.dp),
+            color = Color.White.copy(alpha = .92f), trackColor = Color.White.copy(alpha = .25f))
     }
 }
 
@@ -686,84 +695,112 @@ private fun FullPlayer(
 ) {
     var seekFraction by remember(song.id) { mutableFloatStateOf(-1f) }
     val actual = if (engine.duration > 0L) (engine.position.toFloat() / engine.duration).coerceIn(0f, 1f) else 0f
+    val palette = colors[song.gradient % colors.size]
     Column(
-        modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF252838), base), startY = 0f, endY = 1400f))
-            .verticalScroll(rememberScrollState()).padding(horizontal = 25.dp, vertical = 12.dp),
+        modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(palette[0].copy(alpha = .83f), Color(0xFF242526), base),
+                startY = 0f, endY = 1500f))
+            .verticalScroll(rememberScrollState())
+            .padding(start = 23.dp, end = 23.dp, top = 9.dp, bottom = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.KeyboardArrowDown, "Back", tint = ink, modifier = Modifier.size(30.dp)) }
-            Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("NOW PLAYING", color = muted, fontSize = 10.sp, letterSpacing = 2.sp)
-                Text(if (offline || song.isDeviceFile) "Offline ready" else "Streaming", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.KeyboardArrowDown, "Close player", tint = ink, modifier = Modifier.size(30.dp))
             }
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.GraphicEq, null, tint = accent, modifier = Modifier.size(27.dp))
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("NOW PLAYING", fontSize = 10.sp, letterSpacing = 1.6.sp,
+                    color = Color.White.copy(alpha = .8f), fontWeight = FontWeight.Medium)
+                Text(if (song.isDeviceFile) "Your local music" else "Pulse · Licensed recordings",
+                    fontWeight = FontWeight.Bold, fontSize = 12.sp, color = ink)
+            }
+            IconButton(onClick = onAttribution, enabled = song.sourcePage.isNotBlank()) {
+                Icon(Icons.Default.MoreVert, "Music information", tint = ink)
+            }
         }
-        Spacer(Modifier.height(45.dp))
+        Spacer(Modifier.height(42.dp))
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val artSize = maxWidth.coerceAtMost(340.dp)
-            MusicCover(song, artSize, Modifier.shadow(25.dp, RoundedCornerShape(23.dp)), radius = 23.dp)
+            val artSize = maxWidth.coerceAtMost(344.dp)
+            MusicCover(song, artSize, Modifier.shadow(18.dp, RoundedCornerShape(6.dp)), radius = 6.dp)
         }
-        Spacer(Modifier.height(38.dp))
+        Spacer(Modifier.height(43.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(song.title, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(2.dp))
-                Text(song.artist, fontSize = 14.sp, color = muted, maxLines = 2)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(song.title, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, color = ink)
+                Text(song.artist, fontSize = 15.sp, color = Color.White.copy(alpha = .74f),
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onClick = onFavorite) {
                 Icon(if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    "Favorite", tint = if (favorite) accent else ink, modifier = Modifier.size(27.dp))
+                    "Like this song", tint = if (favorite) accent else ink, modifier = Modifier.size(28.dp))
             }
         }
         Spacer(Modifier.height(22.dp))
         Slider(value = if (seekFraction >= 0f) seekFraction else actual,
             onValueChange = { seekFraction = it },
             onValueChangeFinished = { engine.seek(seekFraction); seekFraction = -1f },
-            valueRange = 0f..1f, colors = SliderDefaults.colors(thumbColor = ink, activeTrackColor = accent,
-                inactiveTrackColor = surfaceAlt), modifier = Modifier.fillMaxWidth())
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = .34f)), modifier = Modifier.fillMaxWidth().height(27.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(displayTime(engine.position), color = muted, fontSize = 11.sp)
-            Text(displayTime(engine.duration), color = muted, fontSize = 11.sp)
+            Text(displayTime(engine.position), color = Color.White.copy(alpha = .70f), fontSize = 11.sp)
+            Text(displayTime(engine.duration), color = Color.White.copy(alpha = .70f), fontSize = 11.sp)
         }
-        Spacer(Modifier.height(20.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-            IconButton(onClick = engine::previous) {
-                Icon(Icons.Default.SkipPrevious, "Previous", tint = ink, modifier = Modifier.size(38.dp))
+        Spacer(Modifier.height(22.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            IconButton(onClick = engine::toggleShuffle) {
+                Icon(Icons.Default.Shuffle, "Shuffle", tint = if (engine.shuffle) accent else ink.copy(alpha = .76f),
+                    modifier = Modifier.size(23.dp))
             }
-            Box(Modifier.size(76.dp).clip(CircleShape).background(accent).clickable { engine.toggle() }, contentAlignment = Alignment.Center) {
+            IconButton(onClick = engine::previous) {
+                Icon(Icons.Default.SkipPrevious, "Previous", tint = ink, modifier = Modifier.size(36.dp))
+            }
+            Box(Modifier.size(69.dp).clip(CircleShape).background(Color.White)
+                .clickable { engine.toggle() }, contentAlignment = Alignment.Center) {
                 Icon(if (engine.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    if (engine.isPlaying) "Pause" else "Play", tint = base, modifier = Modifier.size(41.dp))
+                    if (engine.isPlaying) "Pause" else "Play", tint = Color.Black,
+                    modifier = Modifier.size(39.dp))
             }
             IconButton(onClick = engine::next) {
-                Icon(Icons.Default.SkipNext, "Next", tint = ink, modifier = Modifier.size(38.dp))
+                Icon(Icons.Default.SkipNext, "Next", tint = ink, modifier = Modifier.size(36.dp))
+            }
+            IconButton(onClick = engine::toggleRepeat) {
+                Icon(Icons.Default.Repeat, "Repeat", tint = if (engine.repeat) accent else ink.copy(alpha = .76f),
+                    modifier = Modifier.size(23.dp))
             }
         }
-        Spacer(Modifier.height(28.dp))
-        if (!song.isDeviceFile) {
-            Button(onClick = onDownload, enabled = !offline && progress == null,
-                modifier = Modifier.fillMaxWidth().height(49.dp), shape = RoundedCornerShape(13.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (offline) surfaceAlt else accent,
-                    contentColor = if (offline) ink else base, disabledContainerColor = surfaceAlt, disabledContentColor = muted)) {
-                Icon(if (offline) Icons.Default.DownloadDone else Icons.Default.Download, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (offline) "Saved for offline listening" else if (progress != null) "Downloading…" else "Download for offline", fontWeight = FontWeight.Bold)
-            }
-            progress?.let { Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = accent) }
-        }
-        Spacer(Modifier.height(18.dp))
-        if (song.license.isNotBlank()) {
-            Surface(Modifier.fillMaxWidth().clickable(onClick = onAttribution), color = surface.copy(alpha = .65f), shape = RoundedCornerShape(13.dp)) {
-                Column(Modifier.padding(15.dp)) {
-                    Text("Music credits & licensing", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accent)
-                    Text(song.license, fontSize = 12.sp, color = muted)
-                    Text("Tap to open the original source", fontSize = 11.sp, color = muted)
+        Spacer(Modifier.height(34.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Headphones, null, tint = Color.White.copy(alpha = .70f), modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(if (offline || song.isDeviceFile) "Available offline" else "Streaming online",
+                color = Color.White.copy(alpha = .78f), fontSize = 13.sp, modifier = Modifier.weight(1f))
+            if (!song.isDeviceFile) {
+                TextButton(onClick = onDownload, enabled = !offline && progress == null) {
+                    Icon(if (offline) Icons.Default.DownloadDone else Icons.Default.Download,
+                        "Download song", tint = if (offline) accent else ink, modifier = Modifier.size(21.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(if (offline) "Saved" else if (progress != null) "Saving" else "Download",
+                        color = if (offline) accent else ink, fontSize = 13.sp)
                 }
             }
         }
-        Spacer(Modifier.height(30.dp))
+        progress?.let {
+            Spacer(Modifier.height(9.dp))
+            LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = accent)
+        }
+        if (song.license.isNotBlank()) {
+            Spacer(Modifier.height(22.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = .24f)).clickable(onClick = onAttribution)
+                .padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("About this recording", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ink)
+                Text(song.license, fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
+                Text("View source and license", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ink)
+            }
+        }
     }
 }
 
