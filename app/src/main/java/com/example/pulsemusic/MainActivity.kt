@@ -1064,6 +1064,8 @@ private fun FullPlayer(
     modifier: Modifier = Modifier
 ) {
     var seekFraction by remember(song.id) { mutableFloatStateOf(-1f) }
+    var showQueue by remember { mutableStateOf(false) }
+
     val actual = if (engine.duration > 0L) (engine.position.toFloat() / engine.duration).coerceIn(0f, 1f) else 0f
     val palette = colors[song.gradient % colors.size]
     Column(
@@ -1141,7 +1143,15 @@ private fun FullPlayer(
                     modifier = Modifier.size(23.dp))
             }
         }
-        Spacer(Modifier.height(34.dp))
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { showQueue = true }) {
+                Icon(Icons.Default.QueueMusic, "Open play queue", tint = ink, modifier = Modifier.size(21.dp))
+                Spacer(Modifier.width(7.dp))
+                Text("Up Next", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = ink)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Headphones, null, tint = Color.White.copy(alpha = .70f), modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
@@ -1169,6 +1179,45 @@ private fun FullPlayer(
                 Text("About this recording", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ink)
                 Text(song.license, fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
                 Text("View source and license", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ink)
+            }
+        }
+    }
+    if (showQueue) {
+        ModalBottomSheet(
+            onDismissRequest = { showQueue = false },
+            containerColor = surface,
+            contentColor = ink,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = muted) }
+        ) {
+            val queue = remember(showQueue, song.id) { engine.currentQueue() }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text("Play queue", fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                Spacer(Modifier.height(6.dp))
+                Text("${queue.size} available tracks · tap to jump",
+                    color = muted, fontSize = 12.sp)
+                Spacer(Modifier.height(14.dp))
+                LazyColumn(Modifier.heightIn(max = 440.dp)) {
+                    items(queue, key = { it.id }) { nextSong ->
+                        Row(Modifier.fillMaxWidth().clickable {
+                            engine.jumpTo(nextSong)
+                            showQueue = false
+                        }.padding(vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            MusicCover(nextSong, 47.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(nextSong.title, color = if (nextSong.id == song.id) accent else ink,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(nextSong.artist, fontSize = 12.sp, color = muted,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            if (nextSong.id == song.id) {
+                                Icon(Icons.Default.GraphicEq, "Now playing", tint = accent)
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
             }
         }
     }
