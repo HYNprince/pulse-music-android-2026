@@ -88,7 +88,7 @@ class HistoryDatabaseDeduplicationTest {
         val lastPage = database.dao.historyEventsForExport(beforeId = secondPage.last().event.id, pageSize = 2)
 
         assertEquals(listOf(4L, 3L, 2L, 1L), (firstPage + secondPage).map { it.event.id })
-        assertEquals(listOf("song", "other", "song", "song"), (firstPage + secondPage).map { it.event.songId })
+        assertEquals(listOf(SONG_ID, OTHER_SONG_ID, SONG_ID, SONG_ID), (firstPage + secondPage).map { it.event.songId })
         assertEquals(30_000L, firstPage.first().event.playTime)
         assertEquals(0, lastPage.size)
     }
