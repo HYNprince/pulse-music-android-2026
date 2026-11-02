@@ -6,6 +6,7 @@
 package com.metrolist.music.viewmodels
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.metrolist.innertube.YouTube
@@ -13,11 +14,15 @@ import com.metrolist.innertube.pages.HistoryPage
 import com.metrolist.music.constants.HideVideoSongsKey
 import com.metrolist.music.constants.HistorySource
 import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.utils.HistoryCsvExporter
+import com.metrolist.music.utils.HistoryExportRow
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +31,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -88,6 +94,48 @@ constructor(
                             }
                     }
             }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+    /**
+     * Save all locally recorded plays to a user-selected document.
+     * Remote YouTube Music history is not included. Every play event gets its own row.
+     */
+    suspend fun exportLocalHistory(uri: Uri): Result<Int> =
+        withContext(Dispatchers.IO) {
+            try {
+                val output =
+                    context.contentResolver.openOutputStream(uri)
+                        ?: throw IOException("Cannot open selected document")
+                val rowsWritten =
+                    output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                        HistoryCsvExporter.writeHeader(writer)
+                        var count = 0
+                        var beforeId = Long.MAX_VALUE
+                        while (true) {
+                            val page = database.historyEventsForExport(beforeId = beforeId, pageSize = 250)
+                            if (page.isEmpty()) break
+                            val rows =
+                                page.map { entry ->
+                                    HistoryExportRow(
+                                        playedAt = entry.event.timestamp,
+                                        title = entry.song.song.title,
+                                        artists = entry.song.orderedArtists.joinToString("; ") { it.name },
+                                        album = entry.song.album?.title.orEmpty(),
+                                        playTimeMs = entry.event.playTime,
+                                        songId = entry.event.songId,
+                                    )
+                                }
+                            count += HistoryCsvExporter.writeRows(rows, writer)
+                            beforeId = page.last().event.id
+                        }
+                        count
+                    }
+                Result.success(rowsWritten)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+        }
 
     init {
         fetchRemoteHistory()

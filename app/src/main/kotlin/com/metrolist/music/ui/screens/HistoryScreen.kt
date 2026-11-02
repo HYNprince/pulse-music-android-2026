@@ -5,7 +5,10 @@
 
 package com.metrolist.music.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -37,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -82,7 +86,9 @@ import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.rememberPreference
 import com.metrolist.music.viewmodels.DateAgo
 import com.metrolist.music.viewmodels.HistoryViewModel
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -94,6 +100,27 @@ fun HistoryScreen(
     val database = LocalDatabase.current
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+    var isExporting by remember { mutableStateOf(false) }
+    val exportHistoryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+            if (uri != null && !isExporting) {
+                isExporting = true
+                coroutineScope.launch {
+                    try {
+                        val result = viewModel.exportLocalHistory(uri)
+                        val message =
+                            result.fold(
+                                onSuccess = { count -> context.getString(R.string.gmac_history_export_success, count) },
+                                onFailure = { context.getString(R.string.gmac_history_export_failed) },
+                            )
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    } finally {
+                        isExporting = false
+                    }
+                }
+            }
+        }
     val playerConnection = LocalPlayerConnection.current ?: return
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
@@ -537,6 +564,19 @@ fun HistoryScreen(
                     )
                 }
             } else if (!isSearching) {
+                if (historySource == HistorySource.LOCAL) {
+                    IconButton(
+                        enabled = !isExporting,
+                        onClick = {
+                            exportHistoryLauncher.launch("Gmac-listening-history-" + LocalDate.now() + ".csv")
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.download),
+                            contentDescription = stringResource(R.string.gmac_history_export),
+                        )
+                    }
+                }
                 IconButton(
                     onClick = { isSearching = true },
                 ) {

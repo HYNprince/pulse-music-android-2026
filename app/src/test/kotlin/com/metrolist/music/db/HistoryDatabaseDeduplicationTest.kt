@@ -77,6 +77,23 @@ class HistoryDatabaseDeduplicationTest {
     }
 
     @Test
+    fun `export paging includes repeated plays without duplicates or skips`() = runBlocking {
+        insertEvent(id = 1, songId = SONG_ID, timestamp = TODAY.atTime(9, 0))
+        insertEvent(id = 2, songId = SONG_ID, timestamp = TODAY.atTime(10, 0))
+        insertEvent(id = 3, songId = OTHER_SONG_ID, timestamp = TODAY.atTime(11, 0))
+        insertEvent(id = 4, songId = SONG_ID, timestamp = TODAY.atTime(12, 0))
+
+        val firstPage = database.dao.historyEventsForExport(beforeId = Long.MAX_VALUE, pageSize = 2)
+        val secondPage = database.dao.historyEventsForExport(beforeId = firstPage.last().event.id, pageSize = 2)
+        val lastPage = database.dao.historyEventsForExport(beforeId = secondPage.last().event.id, pageSize = 2)
+
+        assertEquals(listOf(4L, 3L, 2L, 1L), (firstPage + secondPage).map { it.event.id })
+        assertEquals(listOf("song", "other", "song", "song"), (firstPage + secondPage).map { it.event.songId })
+        assertEquals(30_000L, firstPage.first().event.playTime)
+        assertEquals(0, lastPage.size)
+    }
+
+    @Test
     fun `latest event lookup stays bounded to the newest play`() = runBlocking {
         insertEvent(id = 1, songId = SONG_ID, timestamp = TODAY.atTime(9, 0))
         insertEvent(id = 2, songId = OTHER_SONG_ID, timestamp = TODAY.atTime(10, 0))
