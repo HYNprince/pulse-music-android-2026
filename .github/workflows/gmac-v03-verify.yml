@@ -1,0 +1,90 @@
+# Gmac v0.3 verification only. No production signing, publishing, or release.
+name: Gmac v0.3 - tests and optimized smooth APK
+
+on:
+  push:
+    branches:
+      - feature/gmac-history-export
+permissions:
+  contents: read
+
+concurrency:
+  group: gmac-v03-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    if: github.repository == 'HYNprince/pulse-music-android-2026'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install required Android SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Run CSV and database history tests
+        run: >
+          ./gradlew --no-daemon :app:testFossDebugUnitTest
+          --tests com.metrolist.music.utils.HistoryCsvExporterTest
+          --tests com.metrolist.music.db.HistoryDatabaseDeduplicationTest
+
+      - name: Create ephemeral Android debug signing key (never production key)
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.android"
+          keytool -genkeypair -noprompt \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=Android Debug,O=Gmac Development,C=IN"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      # Build the already-existing release-optimized beta variant, not the slow
+      # debuggable build. Override the base ID to make this a separate sandbox.
+      # The final package is com.gmac.player.smooth.beta, so the existing
+      # Gmac / Gmac Performance Beta app and its data stay untouched.
+      - name: Assemble release-optimized smooth preview APK
+        run: ./gradlew --no-daemon :app:assembleFossBeta
+        env:
+          METROLIST_APPLICATION_ID: com.gmac.player.smooth
+          METROLIST_APP_NAME: Gmac Smooth Preview
+
+      - name: Verify signing and isolated application ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/foss/beta -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.gmac.player.smooth.beta'"
+          install -d dist
+          cp "$APK" dist/Gmac-v0.3-Smooth-Preview.apk
+
+      - name: Upload optimized test APK (not a public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gmac-v0.3-Smooth-Preview
+          path: dist/Gmac-v0.3-Smooth-Preview.apk
+          if-no-files-found: error
+          retention-days: 7

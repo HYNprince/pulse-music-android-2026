@@ -1500,6 +1500,12 @@ interface DatabaseDao {
         lastMondayStart: LocalDateTime,
     ): Flow<List<EventWithSong>>
 
+    // Export raw play events in bounded pages, not the deduplicated History-screen list.
+    // Keyset pagination avoids loading a user's entire history into memory.
+    @Transaction
+    @Query("SELECT * FROM event WHERE id < :beforeId ORDER BY id DESC LIMIT :pageSize")
+    suspend fun historyEventsForExport(beforeId: Long, pageSize: Int): List<EventWithSong>
+
     @Transaction
     @Query("SELECT * FROM event ORDER BY rowId ASC LIMIT 1")
     fun firstEvent(): Flow<EventWithSong?>
