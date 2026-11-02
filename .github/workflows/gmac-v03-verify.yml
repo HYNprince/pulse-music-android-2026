@@ -1,0 +1,64 @@
+# Gmac v0.3 verification only. No production signing, publishing, or release.
+name: Gmac v0.3 - tests and debug APK
+
+on:
+  push:
+    branches:
+      - feature/gmac-history-export
+  pull_request:
+    branches:
+      - pulse-metrolist
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gmac-v03-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    if: github.repository == 'HYNprince/pulse-music-android-2026'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install required Android SDK
+        run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0' 'platform-tools'
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Run CSV and database history tests
+        run: >
+          ./gradlew --no-daemon :app:testFossDebugUnitTest
+          --tests com.metrolist.music.utils.HistoryCsvExporterTest
+          --tests com.metrolist.music.db.HistoryDatabaseDeduplicationTest
+
+      - name: Assemble unsigned-for-release / debug-signed test APK
+        run: ./gradlew --no-daemon :app:assembleFossDebug
+
+      - name: Upload private testing APK as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gmac-v0.3-Debug-APK
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 7
