@@ -5,10 +5,6 @@ on:
   push:
     branches:
       - feature/gmac-history-export
-  pull_request:
-    branches:
-      - pulse-metrolist
-
 permissions:
   contents: read
 
@@ -52,7 +48,19 @@ jobs:
           --tests com.metrolist.music.utils.HistoryCsvExporterTest
           --tests com.metrolist.music.db.HistoryDatabaseDeduplicationTest
 
-      - name: Assemble unsigned-for-release / debug-signed test APK
+      - name: Create ephemeral Android debug signing key (never production key)
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.android"
+          keytool -genkeypair -noprompt \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=Android Debug,O=Gmac Development,C=IN"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Assemble debug-signed test APK
         run: ./gradlew --no-daemon :app:assembleFossDebug
 
       - name: Upload private testing APK as Actions artifact
