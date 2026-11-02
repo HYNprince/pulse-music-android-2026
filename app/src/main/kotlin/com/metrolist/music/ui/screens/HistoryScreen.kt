@@ -224,10 +224,12 @@ fun HistoryScreen(
         remember(filteredEvents) {
             filteredEvents.values.flatten()
         }
+    // Check selected history IDs in O(1) rather than rescanning every row.
+    val eventsById = remember(allEvents) { allEvents.associateBy { it.event.id } }
 
-    LaunchedEffect(allEvents) {
+    LaunchedEffect(eventsById) {
         selection.fastForEachReversed { eventId ->
-            if (allEvents.find { it.event.id == eventId } == null) {
+            if (eventId !in eventsById) {
                 selection.remove(eventId)
             }
         }
@@ -282,10 +284,11 @@ fun HistoryScreen(
                         )
                     }
 
-                    items(
+                    // itemsIndexed avoids an O(n) indexOf() search for every rendered row.
+                    itemsIndexed(
                         items = section.songs,
-                        key = { "${section.title}_${it.id}_${section.songs.indexOf(it)}" },
-                    ) { song ->
+                        key = { index, song -> "${section.title}_${song.id}_$index" },
+                    ) { _, song ->
                         YouTubeListItem(
                             item = song,
                             isActive = song.id == mediaMetadata?.id,
@@ -545,9 +548,7 @@ fun HistoryScreen(
                             SelectionMediaMetadataMenu(
                                 songSelection =
                                     selection.mapNotNull { eventId ->
-                                        allEvents
-                                            .find { it.event.id == eventId }
-                                            ?.song
+                                        eventsById[eventId]?.song
                                             ?.toMediaItem()
                                             ?.metadata
                                     },

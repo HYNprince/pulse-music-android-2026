@@ -1,5 +1,5 @@
 # Gmac v0.3 verification only. No production signing, publishing, or release.
-name: Gmac v0.3 - tests and debug APK
+name: Gmac v0.3 - tests and optimized smooth APK
 
 on:
   push:
@@ -60,13 +60,31 @@ jobs:
             -dname "CN=Android Debug,O=Gmac Development,C=IN"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Assemble debug-signed test APK
-        run: ./gradlew --no-daemon :app:assembleFossDebug
+      # Build the already-existing release-optimized beta variant, not the slow
+      # debuggable build. Override the base ID to make this a separate sandbox.
+      # The final package is com.gmac.player.smooth.beta, so the existing
+      # Gmac / Gmac Performance Beta app and its data stay untouched.
+      - name: Assemble release-optimized smooth preview APK
+        run: ./gradlew --no-daemon :app:assembleFossBeta
+        env:
+          METROLIST_APPLICATION_ID: com.gmac.player.smooth
+          METROLIST_APP_NAME: Gmac Smooth Preview
 
-      - name: Upload private testing APK as Actions artifact
+      - name: Verify signing and isolated application ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/foss/beta -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.gmac.player.smooth.beta'"
+          install -d dist
+          cp "$APK" dist/Gmac-v0.3-Smooth-Preview.apk
+
+      - name: Upload optimized test APK (not a public release)
         uses: actions/upload-artifact@v4
         with:
-          name: Gmac-v0.3-Debug-APK
-          path: app/build/outputs/apk/**/*.apk
+          name: Gmac-v0.3-Smooth-Preview
+          path: dist/Gmac-v0.3-Smooth-Preview.apk
           if-no-files-found: error
           retention-days: 7

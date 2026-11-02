@@ -137,9 +137,8 @@ constructor(
             }
         }
 
-    init {
-        fetchRemoteHistory()
-    }
+    // Remote history is requested only after the user switches to the Remote tab.
+    // Avoid starting an unnecessary network request while opening local history.
 
     fun fetchRemoteHistory() {
         viewModelScope.launch(Dispatchers.IO) {
