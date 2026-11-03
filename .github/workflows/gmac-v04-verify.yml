@@ -37,6 +37,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon :app:testFossDebugUnitTest \
             --tests com.metrolist.music.smartmix.SmartMixEngineTest \
+            --tests com.metrolist.music.db.SmartMixDatabaseIntegrationTest \
             --tests com.metrolist.music.utils.HistoryCsvExporterTest \
             --tests com.metrolist.music.db.HistoryDatabaseDeduplicationTest
       - name: Create temporary debug signing key

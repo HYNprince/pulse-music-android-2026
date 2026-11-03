@@ -8,7 +8,25 @@
 
 **License and credits:** GNU GPL-3.0. Original MetroList authors retain copyright in the upstream code and assets. This fork retains [LICENSE](LICENSE) and original notices. The source attribution is recorded in [Gmac's changes and attribution](PULSE_FORK_README.md).
 
-**Development:** Full Android source is in the `pulse-metrolist` branch; the older separate Pulse Music prototype remains on `main`. Installable APKs are published as prereleases for testing only.
+**Development:** MetroList-based source is on `pulse-metrolist`, while Gmac v0.4 is under review on `feature/gmac-smart-mix-v04` ([draft PR #2](https://github.com/HYNprince/pulse-music-android-2026/pull/2)). The older Pulse prototype remains on `main`. Preview APKs are GitHub Actions artifacts, not public software releases.
+
+---
+
+## Gmac-specific development (2026)
+
+**Maintained by V Gokulbalaji** · [Source repository](https://github.com/HYNprince/pulse-music-android-2026) · **GNU GPL v3**
+
+This is a **modified MetroList fork**, not a music player created from scratch. Gmac's additions currently under development include:
+
+- **Listening History CSV Export (v0.3):** local play-event export, streaming rows in batches, CSV escaping and formula-injection protection, and Room/CSV regression tests.
+- **Smart Mix Generator (v0.4 preview):** local deterministic song scoring; Favorites, Rediscover, Balanced and Offline presets; artist diversification; user-selected track counts; explainable suggestions; local playlist snapshot saving.
+- **Android build/QA:** isolated development package IDs, Java/Gradle/GitHub Actions testing, and R8-optimized Android preview APK generation.
+
+**Verification status:** CI unit and database tests plus APK compilation/signature verification pass for the v0.4 preview; **real-device Smart Mix acceptance testing is still required**. The preview is not a public release.
+
+See [Gmac contributions & test plan](GMAC_CONTRIBUTIONS.md) and [fork provenance](PULSE_FORK_README.md). The original MetroList source and notices remain credited below.
+
+**License:** The combined codebase remains under [GNU GPL v3](LICENSE), including new Gmac source additions. Original upstream authors keep copyright to their work. The name and logo do not give rights to upstream branding, commercial music, or third-party artwork. The Batman-style test logo has **not been cleared for public distribution**.
 
 ---
 
