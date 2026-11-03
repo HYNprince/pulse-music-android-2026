@@ -1,0 +1,72 @@
+# Gmac v0.4 test-only build. No production key, merging or publishing.
+name: Gmac v0.4 - Smart Mix optimized APK
+
+on:
+  push:
+    branches:
+      - feature/gmac-smart-mix-v04
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gmac-v04-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    if: github.repository == 'HYNprince/pulse-music-android-2026'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
+      - name: Test recommendation logic, history, and CSV export
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:testFossDebugUnitTest \
+            --tests com.metrolist.music.smartmix.SmartMixEngineTest \
+            --tests com.metrolist.music.utils.HistoryCsvExporterTest \
+            --tests com.metrolist.music.db.HistoryDatabaseDeduplicationTest
+      - name: Create temporary debug signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.android"
+          keytool -genkeypair -noprompt \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android \
+            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=Android Debug,O=Gmac Development,C=IN"
+      - name: Assemble R8-optimized Smart Mix beta
+        run: ./gradlew --no-daemon :app:assembleFossBeta
+        env:
+          METROLIST_APPLICATION_ID: com.gmac.player.smartmix
+          METROLIST_APP_NAME: Gmac Smart Mix v0.4
+      - name: Verify package and signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/foss/beta -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.gmac.player.smartmix.beta'"
+          mkdir -p dist
+          cp "$APK" dist/Gmac-v0.4-Smart-Mix.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gmac-v0.4-Smart-Mix-APK
+          path: dist/Gmac-v0.4-Smart-Mix.apk
+          if-no-files-found: error
+          retention-days: 7

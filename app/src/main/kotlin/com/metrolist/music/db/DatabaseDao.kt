@@ -79,6 +79,42 @@ import java.util.Locale
  */
 @Dao
 interface DatabaseDao {
+    /**
+     * Local Smart Mix signals, bounded to the 2,000 most relevant stored songs.
+     * The work is explicitly triggered by the user, not on every composition.
+     */
+    @Query(
+        """
+        SELECT song.id AS id,
+               song.title AS title,
+               (SELECT sam.artistId FROM song_artist_map sam
+                WHERE sam.songId = song.id ORDER BY sam.position LIMIT 1) AS artistId,
+               song.liked AS liked,
+               song.isLocal AS isLocal,
+               song.isDownloaded AS isDownloaded,
+               song.explicit AS explicit,
+               song.totalPlayTime AS lifetimePlayMs,
+               COALESCE(SUM(CASE WHEN event.timestamp >= :recentStart THEN event.playTime ELSE 0 END), 0) AS recentPlayMs,
+               COALESCE(SUM(CASE WHEN event.timestamp < :recentStart THEN event.playTime ELSE 0 END), 0) AS olderPlayMs,
+               MAX(event.timestamp) AS lastPlayedAt
+        FROM (
+            SELECT * FROM song
+            WHERE (inLibrary IS NOT NULL OR liked = 1 OR isLocal = 1
+                   OR isDownloaded = 1 OR totalPlayTime > 0)
+              AND isVideo = 0 AND isEpisode = 0
+            ORDER BY totalPlayTime DESC, id
+            LIMIT :maxCandidates
+        ) AS song
+        LEFT JOIN event ON event.songId = song.id
+        GROUP BY song.id
+        ORDER BY song.totalPlayTime DESC, song.id
+        """,
+    )
+    suspend fun smartMixCandidates(
+        recentStart: LocalDateTime,
+        maxCandidates: Int,
+    ): List<com.metrolist.music.smartmix.SmartMixCandidate>
+
     @Query("SELECT * FROM song WHERE id = :songId LIMIT 1")
     suspend fun songEntity(songId: String): SongEntity?
 

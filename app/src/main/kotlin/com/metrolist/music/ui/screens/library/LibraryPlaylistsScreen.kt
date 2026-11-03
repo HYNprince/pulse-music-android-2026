@@ -31,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,6 +76,7 @@ import com.metrolist.music.constants.YtmSyncKey
 import com.metrolist.music.db.entities.Playlist
 import com.metrolist.music.db.entities.PlaylistEntity
 import com.metrolist.music.ui.component.CreatePlaylistDialog
+import com.metrolist.music.ui.component.GmacSmartMixDialog
 import com.metrolist.music.ui.component.LibrarySearchEmptyPlaceholder
 import com.metrolist.music.ui.component.LibrarySearchHeader
 import com.metrolist.music.ui.component.LibraryPlaylistGridItem
@@ -315,6 +317,17 @@ fun LibraryPlaylistsScreen(
     }
 
     var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+    var showSmartMixDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showSmartMixDialog) {
+        GmacSmartMixDialog(
+            onDismiss = { showSmartMixDialog = false },
+            onSaved = { playlistId ->
+                showSmartMixDialog = false
+                navController.navigate("local_playlist/$playlistId")
+            },
+        )
+    }
 
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
@@ -425,6 +438,17 @@ fun LibraryPlaylistsScreen(
                         headerContent()
                     }
 
+                    item(key = "create_smart_mix") {
+                        OutlinedButton(
+                            onClick = { showSmartMixDialog = true },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        ) {
+                            Icon(painter = painterResource(R.drawable.shuffle), contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Create Smart Mix")
+                        }
+                    }
+
                     if (visibleResults.isEmpty()) {
                         item(key = "empty_placeholder") {
                             if (searchQuery.isNotBlank()) {
@@ -491,6 +515,17 @@ fun LibraryPlaylistsScreen(
                         contentType = CONTENT_TYPE_HEADER,
                     ) {
                         headerContent()
+                    }
+
+                    item(key = "create_smart_mix", span = { GridItemSpan(maxLineSpan) }) {
+                        OutlinedButton(
+                            onClick = { showSmartMixDialog = true },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        ) {
+                            Icon(painter = painterResource(R.drawable.shuffle), contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Create Smart Mix")
+                        }
                     }
 
                     if (visibleResults.isEmpty()) {
