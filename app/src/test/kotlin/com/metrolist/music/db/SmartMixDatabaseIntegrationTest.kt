@@ -58,7 +58,7 @@ class SmartMixDatabaseIntegrationTest {
         assertTrue(candidates.first { it.id == "offline" }.isDownloaded)
     }
 
-    @Test fun `local mix persists in existing playlist tables and stays local`() {
+    @Test fun `local mix persists in existing playlist tables and stays local`() = runBlocking {
         val snapshot = PlaylistEntity(id = "LP_SMART_MIX_TEST", name = "Gmac Balanced Mix",
             bookmarkedAt = now, isEditable = true, isAutoSync = false)
         database.dao.insert(snapshot)
