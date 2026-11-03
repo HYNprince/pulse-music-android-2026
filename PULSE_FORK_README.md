@@ -4,7 +4,7 @@
 
 ## What was changed
 
-- Gmac app name and an original green bat-emblem test launcher artwork
+- Gmac app name and a Batman-style bat-emblem test launcher artwork (not cleared for public distribution)
 - Independent Android application ID: `com.gmac.player`
 - Updated visible application labels and selected user-facing strings
 - Disabled the upstream updater so this fork will not fetch MetroList releases
@@ -21,9 +21,17 @@ Base upstream revision: `876e355181fd3b04e7063b10442fef1b721d53b3`
 
 This application is not endorsed by MetroList, Google, YouTube or Spotify. It uses a third-party YouTube Music integration, which can be unstable or restricted by the relevant service terms. The source license does not itself grant rights to copyrighted recordings or lyrics.
 
+## Gmac-only contributions
+
+- **v0.3 (development):** Streaming local listening-history CSV export and regression tests.
+- **v0.4 (development):** Local Smart Mix recommendation engine (scoring, variety, filtering, deterministic regeneration, explainable picks), Room aggregation, Jetpack Compose preview, and saved playlist snapshots.
+- Dedicated GitHub Actions CI for unit tests and separate optimized Android preview artifacts.
+
+Implementation details and verification steps are in [GMAC_CONTRIBUTIONS.md](GMAC_CONTRIBUTIONS.md). Original MetroList copyright and upstream features are not claimed as Gmac-original.
+
 ## Building
 
-See `https://github.com/HYNprince/pulse-music-android-2026/actions` for our separate test APK workflow. This is a **debug build**, not a production-signed Google Play release. The original Pulse prototype remains available on the repository's `main` branch, and the unmodified MetroList snapshot remains on `metrolist-source`.
+See [GitHub Actions](https://github.com/HYNprince/pulse-music-android-2026/actions) for development APK workflows. v0.4 uses an **R8-optimized, debug-key-signed beta**, not a production-signed Google Play release. The original Pulse prototype remains on `main`; upstream snapshot provenance is in [PULSE_UPSTREAM_SOURCE_NOTICE.md](PULSE_UPSTREAM_SOURCE_NOTICE.md).
 
 ## Beta artwork and trademark caveat
 
