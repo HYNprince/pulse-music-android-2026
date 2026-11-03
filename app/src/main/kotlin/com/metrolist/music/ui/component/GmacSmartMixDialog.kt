@@ -57,7 +57,7 @@ fun GmacSmartMixDialog(
     var loading by remember { mutableStateOf(true) }
     var generating by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(database) {
         loading = true
@@ -69,14 +69,14 @@ fun GmacSmartMixDialog(
                 )
             }
         } catch (e: Exception) {
-            error = "Could not read your music library."
+            errorMessage = "Could not read your music library."
         } finally {
             loading = false
         }
     }
 
-    LaunchedEffect(candidates, preset, songCount, offlineOnly, variation) {
-        if (!loading && error == null) {
+    LaunchedEffect(candidates, preset, songCount, offlineOnly, variation, loading) {
+        if (!loading && errorMessage == null) {
             generating = true
             preview = withContext(Dispatchers.Default) {
                 SmartMixEngine.generate(
@@ -136,7 +136,7 @@ fun GmacSmartMixDialog(
                 }
                 when {
                     loading || generating -> CircularProgressIndicator()
-                    error != null -> Text(error ?: "", color = MaterialTheme.colorScheme.error)
+                    errorMessage != null -> Text(errorMessage ?: "", color = MaterialTheme.colorScheme.error)
                     preview.isEmpty() -> Text("No matching songs yet. Play or like some music first, or try another filter.")
                     else -> {
                         Text("Preview: ${preview.size} songs", style = MaterialTheme.typography.titleSmall)
@@ -179,7 +179,7 @@ fun GmacSmartMixDialog(
                             }
                             onSaved(newPlaylist.id)
                         } catch (e: Exception) {
-                            error = "Could not save this mix. Please try again."
+                            errorMessage = "Could not save this mix. Please try again."
                         } finally {
                             saving = false
                         }
